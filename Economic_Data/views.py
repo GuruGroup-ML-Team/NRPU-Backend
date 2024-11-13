@@ -1,4 +1,3 @@
-# indicators/views.py
 import pandas as pd
 import os
 from rest_framework.response import Response
@@ -12,10 +11,6 @@ def economic_data(request):
         year = request.data.get('year', 'All')
         indicator = request.data.get('indicator', 'All')
 
-        # Validate that at least year or indicator is provided
-        if year == 'All' and indicator == 'All':
-            return Response({"error": "Year or indicator is required."}, status=status.HTTP_400_BAD_REQUEST)
-
         # Load the Excel file
         file_path = 'Data/Economic_Data.xlsx'
         if not os.path.exists(file_path):
@@ -27,29 +22,32 @@ def economic_data(request):
         # Rename 'Unnamed: 0' to 'Years' for easier access
         df.rename(columns={'Unnamed: 0': 'Years'}, inplace=True)
 
-        # Debugging: Print the column names to confirm renaming
-        print("Updated Excel Columns:", df.columns)
+        # Handle filtering based on input
+        data = df  # Start with the full dataset
 
-        # Filter data based on input
-        data = df  # Start with the full data set
-
-        # Apply year filter if provided
+        # If a specific year is requested, filter by that year
         if year != 'All':
             data = data[data['Years'] == int(year)]
             if data.empty:
                 return Response({"error": f"No data found for the year {year}."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Apply indicator filter if provided
+        # If a specific indicator is requested, filter by that indicator column
         if indicator != 'All':
             if indicator not in df.columns:
                 return Response({"error": f"Indicator '{indicator}' not found."}, status=status.HTTP_400_BAD_REQUEST)
-            data = data[['Years', indicator]]
+            data = data[['Years', indicator]]  # Keep only the year and requested indicator
 
-        # Prepare the response in the required format
+        # Prepare the response in the required format, replacing missing values
+        result_data = []
+        for _, row in data.iterrows():
+            # Ensure each indicator has a value, replacing NaN with `null` or "Data not available"
+            row_data = {key: (value if pd.notna(value) else None) for key, value in row.items()}
+            result_data.append(row_data)
+
         result = {
             "year": year,
             "indicator": indicator,
-            "data": data.to_dict(orient='records')
+            "data": result_data
         }
 
         # Check if any data was found
