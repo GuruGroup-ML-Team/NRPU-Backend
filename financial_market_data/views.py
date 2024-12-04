@@ -7,14 +7,19 @@ from rest_framework import status
 @api_view(['POST','GET'])
 def financial_market_data(request):
     try:
-        # Retrieve query parameters with default values
-        sector = request.data.get('sector', 'All')
-        sub_sector = request.data.get('sub_sector', 'All')
-        org_name = request.data.get('org_name', 'All')
-        indicator = request.data.get('indicator', 'All')
-        sub_indicator = request.data.get('sub_indicator', 'All')
-        sub_sub_indicator = request.data.get('sub_sub_indicator', 'All')
-        year = request.data.get('year', 'All')
+        # Log incoming request data
+        print("Request method:", request.method)
+        print("Request data (POST):", request.data)
+        print("Request data (GET):", request.GET)
+
+        # Retrieve query parameters
+        sector = request.data.get('sector', request.GET.get('sector', 'All'))
+        sub_sector = request.data.get('sub_sector', request.GET.get('sub_sector', 'All'))
+        org_name = request.data.get('org_name', request.GET.get('org_name', 'All'))
+        indicator = request.data.get('indicator', request.GET.get('indicator', 'All'))
+        sub_indicator = request.data.get('sub_indicator', request.GET.get('sub_indicator', 'All'))
+        sub_sub_indicator = request.data.get('sub_sub_indicator', request.GET.get('sub_sub_indicator', 'All'))
+        year = request.data.get('year', request.GET.get('year', 'All'))
 
         # Validate input fields
         if not (sector and indicator and year):

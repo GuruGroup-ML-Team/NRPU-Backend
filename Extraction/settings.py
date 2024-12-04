@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'financial_market_data',
     'Economic_Data',
     'corsheaders',
+    'financial_statement_analysis',
+    'Altman_Zscore',
 ]
 
 MIDDLEWARE = [

@@ -3,54 +3,64 @@ import os
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
+from datetime import datetime
 
 @api_view(['POST'])
 def economic_data(request):
     try:
         # Retrieve query parameters from POST data
-        year = request.data.get('year', 'All')
-        indicator = request.data.get('indicator', 'All')
+        year = request.data.get('year')  # Can be None, a single value, or a list
+        indicator = request.data.get('indicator')  # No default; will be None if not provided
 
         # Load the Excel file
         file_path = 'Data/Economic_Data.xlsx'
         if not os.path.exists(file_path):
             return Response({"error": "Data file not found."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Load the Excel sheet and skip any initial rows if necessary
         df = pd.read_excel(file_path, skiprows=1)
-
-        # Rename 'Unnamed: 0' to 'Years' for easier access
         df.rename(columns={'Unnamed: 0': 'Years'}, inplace=True)
 
-        # Handle filtering based on input
-        data = df  # Start with the full dataset
+        # Start with the full dataset
+        data = df
 
-        # If a specific year is requested, filter by that year
-        if year != 'All':
-            data = data[data['Years'] == int(year)]
-            if data.empty:
-                return Response({"error": f"No data found for the year {year}."}, status=status.HTTP_404_NOT_FOUND)
+        # Handle year filtering
+        if year:
+            if isinstance(year, list):
+                # Filter data for all years in the list
+                year = [int(y) for y in year if str(y).isdigit()]
+                data = data[data['Years'].isin(year)]
+                if data.empty:
+                    return Response({"error": f"No data found for the years {year}."}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                # Handle single year
+                year = int(year)
+                data = data[data['Years'] == year]
+                if data.empty:
+                    return Response({"error": f"No data found for the year {year}."}, status=status.HTTP_404_NOT_FOUND)
 
-        # If a specific indicator is requested, filter by that indicator column
-        if indicator != 'All':
+        # Handle indicator filtering
+        if indicator:
             if indicator not in df.columns:
                 return Response({"error": f"Indicator '{indicator}' not found."}, status=status.HTTP_400_BAD_REQUEST)
             data = data[['Years', indicator]]  # Keep only the year and requested indicator
+        else:
+            # If no specific indicator, include all indicators
+            data = data
 
-        # Prepare the response in the required format, replacing missing values
+        # Prepare the response data, replacing missing values with None
         result_data = []
         for _, row in data.iterrows():
-            # Ensure each indicator has a value, replacing NaN with `null` or "Data not available"
             row_data = {key: (value if pd.notna(value) else None) for key, value in row.items()}
             result_data.append(row_data)
 
+        # Construct the response
         result = {
-            "year": year,
-            "indicator": indicator,
-            "data": result_data
+            "years": year if year else "All",
+            "indicator": indicator if indicator else "All",
+            "data": result_data,
         }
 
-        # Check if any data was found
+        # If no data was found after filtering, return a 404 response
         if not result["data"]:
             return Response({"error": "No data found for the provided criteria."}, status=status.HTTP_404_NOT_FOUND)
 
