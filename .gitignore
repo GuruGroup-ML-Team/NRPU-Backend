@@ -1,0 +1,16 @@
+# Python cache files
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+env/
+
+# Heroku-specific files
+*.log
+
+# Static files (if generated locally)
+staticfiles/
+
+# Ignore sensitive files
+.env
