@@ -28,13 +28,13 @@ SECRET_KEY = 'django-insecure-a^ga6z%)o4#n&xwfut$rboy%(*ybp7i7&15zz9*c+-yt57b96(
 DEBUG = True
 CORS_ALLOWED_ORIGINS = [
      "http://localhost:3000",
-
+     "https://new-dash-board-app.vercel.app/"
     # 'http://localhost:3000/CreditRisk',
     # "http://localhost:3000/financial_statement_analysis/"
 
 ]
 
-ALLOWED_HOSTS = ['https://nrpuapi-137b31326fcb.herokuapp.com/', 'localhost',"https://new-dash-board-app.vercel.app/"]
+ALLOWED_HOSTS = ['https://nrpuapi-137b31326fcb.herokuapp.com/', 'localhost','new-dash-board-app.vercel.app']
 
 
 # Application definition
