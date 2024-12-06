@@ -1,5 +1,3 @@
-
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -26,7 +24,7 @@ class Altman_Zscore(APIView):
 
     def calculate_altman_score(self, df_filtered):
         """
-        Method to calculate Altman Z-Score based on the available financial indicators.
+        Method to calculate Altman Z-Scores for all available years in the dataset.
         """
         print("Inside calculate_altman_score method")
 
@@ -40,42 +38,50 @@ class Altman_Zscore(APIView):
             '5. total fixed liabilities (d1+d3)': 'tl'
         }
 
-        # Initialize the components dictionary
-        components = {key: 0 for key in zscore_components.values()}
+        # Extract all year columns
+        year_columns = [col for col in df_filtered.columns if col.isdigit()]
+        altman_scores = {}
 
-        # Iterate over the filtered DataFrame and populate components
-        for _, row in df_filtered.iterrows():
-            sub_indicator = row['Sub Indicator'].strip().lower()
-            if sub_indicator in zscore_components:
-                component_key = zscore_components[sub_indicator]
-                components[component_key] = row['2020']
+        for year in year_columns:
+            components = {key: None for key in zscore_components.values()}
 
-        print("Components after extraction:")
-        print(components)
+            # Populate components for the current year
+            for _, row in df_filtered.iterrows():
+                sub_indicator = row['Sub Indicator'].strip().lower()
+                if sub_indicator in zscore_components:
+                    component_key = zscore_components[sub_indicator]
+                    components[component_key] = row.get(year, None)
 
-        # Check if any key has a value of zero to avoid division by zero
-        if components['ta'] == 0 or components['tl'] == 0:
-            return {"error": "Division by zero error: 'Total Assets' or 'Total Liabilities' is zero."}
+            print(f"Components for year {year}:")
+            print(components)
 
-        # Calculate ratios
-        try:
-            x1 = components['wc'] / components['ta']
-            x2 = components['re'] / components['ta']
-            x3 = components['ebit'] / components['ta']
-            x4 = components['mve'] / components['tl']
+            # Remove components with None or zero values
+            valid_components = {key: value for key, value in components.items() if value not in (None, 0)}
 
-            # Calculate the Altman Z-Score using the given formula
-            altman_zscore = (
-                (6.56 * x1) +  # Working Capital / Total Assets
-                (3.26 * x2) +  # Retained Earnings / Total Assets
-                (6.72 * x3) +  # EBIT / Total Assets
-                (1.05 * x4)    # Market Value of Equity / Total Liabilities
-            )
+            if not all(key in valid_components for key in ['ta', 'tl']):
+                altman_scores[year] = "Insufficient data"
+                continue
 
-            return altman_zscore
-        except Exception as e:
-            print(f"Error in calculating Altman Z-Score: {str(e)}")
-            return {"error": f"Error calculating Altman Z-Score: {str(e)}"}
+            # Calculate ratios and Altman Z-Score
+            try:
+                x1 = valid_components.get('wc', 0) / valid_components['ta'] if 'wc' in valid_components else 0
+                x2 = valid_components.get('re', 0) / valid_components['ta'] if 're' in valid_components else 0
+                x3 = valid_components.get('ebit', 0) / valid_components['ta'] if 'ebit' in valid_components else 0
+                x4 = valid_components.get('mve', 0) / valid_components['tl'] if 'mve' in valid_components else 0
+
+                altman_zscore = (
+                    (6.56 * x1) + 
+                    (3.26 * x2) + 
+                    (6.72 * x3) + 
+                    (1.05 * x4)
+                )
+                altman_scores[year] = altman_zscore
+            except Exception as e:
+                print(f"Error in calculating Altman Z-Score for year {year}: {str(e)}")
+                altman_scores[year] = f"Error: {str(e)}"
+
+        return altman_scores
+
     def post(self, request):
         """
         POST method to filter data and calculate Altman Z-Score using predefined sub-indicators,
@@ -99,14 +105,45 @@ class Altman_Zscore(APIView):
                 "    5. Total fixed liabilities (D1+D3)"
             ]
 
-            # Filter the DataFrame based on sector, sub-sector, org_name, and year
-            filtered_df = self.df_pivot
+            # Predefined list of sectors
+            predefined_sectors = [
+                "Textile Sector", "Sugar", "Food", "Chemicals, Chemical Products and Pharmaceuticals",
+                "Manufacturing", "Mineral products", "Cement", "Motor Vehicles, Trailers & Autoparts",
+                "Fuel and Energy Sector", "Information and Communication Services", 
+                "Coke and Refined Petroleum Products", "Paper, Paperboard and Products",
+                "Electrical Machinery and Apparatus", "Other Services Activities"
+            ]
 
             # Debugging: Check if DataFrame is loaded correctly
+            filtered_df = self.df_pivot
             print("Before filtering:")
             print(filtered_df.head())
 
-            # Apply filters
+            if sector and sector.lower() == "all":
+                if not year or year.lower() == "all":
+                    return Response(
+                        {"error": "Year must be specified when sector is 'All'."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Calculate Altman Z-Score for all predefined sectors
+                zscore_results = {}
+                for sec in predefined_sectors:
+                    sector_df = filtered_df[filtered_df['Sector'] == sec]
+                    sector_df = sector_df[sector_df['Sub Indicator'].isin(predefined_sub_indicators)]
+                    sector_df['Sub Indicator'] = sector_df['Sub Indicator'].str.strip().str.lower()
+                    sector_df = sector_df.drop_duplicates(subset=['Sub Indicator'], keep='first')
+                    zscore = self.calculate_altman_score(sector_df)
+                    zscore_results[sec] = zscore.get(year, "Insufficient data or error in calculation")
+
+                response_data = {
+                    "sector": "All",
+                    "year": year,
+                    "altman_zscore": zscore_results
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+
+            # Apply filters for specific sector, sub-sector, and org_name
             if sector:
                 filtered_df = filtered_df[filtered_df['Sector'] == sector]
             if sub_sector:
@@ -116,34 +153,37 @@ class Altman_Zscore(APIView):
 
             # Filter based on predefined sub-indicators
             filtered_df = filtered_df[filtered_df['Sub Indicator'].isin(predefined_sub_indicators)]
-
-            # Apply year filter if specified
-            if year:
-                filtered_df = filtered_df[['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', year]]
-
-            # Clean up the "Sub Indicator" column
             filtered_df['Sub Indicator'] = filtered_df['Sub Indicator'].str.strip().str.lower()
-
-            # Drop duplicate sub-indicators and keep only the first occurrence
             filtered_df = filtered_df.drop_duplicates(subset=['Sub Indicator'], keep='first')
 
-            # Debugging: Check the DataFrame after dropping duplicates
-            print("After Filtering duplicates:")
-            print(filtered_df)
+            # Apply year filter if specified
+            if year and year != "all":
+                filtered_df = filtered_df[['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', year]]
+                if filtered_df.empty:
+                    return Response(
+                        {"message": f"No data found for the year {year} with the selected filters."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
 
-            # If no data found after filtering
-            if filtered_df.empty:
-                return Response({"message": "No data found for the selected filters."}, status=status.HTTP_404_NOT_FOUND)
+                altman_zscore = self.calculate_altman_score(filtered_df)
+                response_data = {
+                    "sector": sector,
+                    "sub_sector": sub_sector,
+                    "org_name": org_name,
+                    "year": year,
+                    "altman_zscore": altman_zscore.get(year, "Insufficient data or error in calculation")
+                }
+            else:
+                altman_zscore = self.calculate_altman_score(filtered_df)
+                response_data = {
+                    "sector": sector,
+                    "sub_sector": sub_sector,
+                    "org_name": org_name,
+                    "year": year,
+                    "altman_zscore": altman_zscore
+                }
 
-           # Calculate Altman Z-Score
-            altman_zscore = self.calculate_altman_score(filtered_df)
-
-            # If no valid Altman Z-Score can be calculated, return an error
-            if isinstance(altman_zscore, dict) and "error" in altman_zscore:
-                return Response({"message": altman_zscore["error"]}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Return the Altman Z-Score in the response
-            return Response({"altman_zscore": altman_zscore}, status=status.HTTP_200_OK)
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

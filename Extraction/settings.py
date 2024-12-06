@@ -34,7 +34,7 @@ CORS_ALLOWED_ORIGINS = [
 
 ]
 
-ALLOWED_HOSTS = ['https://nrpuapi-137b31326fcb.herokuapp.com/', 'localhost']
+ALLOWED_HOSTS = ['https://nrpuapi-137b31326fcb.herokuapp.com/', 'localhost',"https://new-dash-board-app.vercel.app/"]
 
 
 # Application definition
