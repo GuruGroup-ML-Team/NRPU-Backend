@@ -55,17 +55,30 @@ def financial_statement_analysis(request):
             "Electrical Machinery and Apparatus", "Other Services Activities"
         ]
 
-        # Handle 'All' indicator case first
         if indicator == 'All':
             if sector == 'All':
                 # If 'All' sector and 'All' indicator, return the first occurrence of each indicator for all sectors
                 df = df.drop_duplicates(subset=['Sector', 'Indicator'], keep='first').reset_index(drop=True)
             else:
                 # If a specific sector and 'All' indicator, return first occurrence per indicator for that sector
-                df = df.drop_duplicates(subset=['Indicator'], keep='first').reset_index(drop=True)
-            # After handling indicator == 'All', no need to filter by sub-indicator or sub-sub-indicator
+                df = df[df['Sector'] == sector].drop_duplicates(subset=['Indicator'], keep='first').reset_index(drop=True)
             df = df[['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator'] + selected_years]
         
+        elif sector == 'All':
+            # Handle specific indicator and 'All' sector
+            df = df[df['Indicator'].str.contains(f"{re.escape(indicator)}", case=False, na=False)]
+            
+            # Further filtering by sub-indicator and sub-sub-indicator if provided
+            if sub_indicator:
+                df = df[df['Sub Indicator'].str.contains(f"{re.escape(sub_indicator)}", case=False, na=False)]
+            if sub_sub_indicator:
+                df = df[df['Sub-Sub Indicator'].str.contains(f"{re.escape(sub_sub_indicator)}", case=False, na=False)]
+
+            # Retain only the first occurrence of the indicator per sector
+            df = df.drop_duplicates(subset=['Sector', 'Indicator'], keep='first')
+
+            df = df[['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator'] + selected_years]
+
         else:
             # Apply filters for specific indicators
             if sector == 'All':
@@ -84,6 +97,9 @@ def financial_statement_analysis(request):
             if sub_sub_indicator:
                 df = df[df['Sub-Sub Indicator'].str.contains(f"{re.escape(sub_sub_indicator)}", case=False, na=False)]
 
+            # Retain only the first occurrence of the indicator
+            df = df.drop_duplicates(subset=['Indicator'], keep='first')
+
             # Filter by selected years
             df = df[['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator'] + selected_years]
 
@@ -91,23 +107,15 @@ def financial_statement_analysis(request):
         if df.empty:
             return Response({"message": "No data found matching the criteria."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Handle grouping based on indicator and sector (if not 'All')
-        if indicator == 'All' and sector == 'All':
-            grouped_df = df.groupby(['Sector', 'Indicator'], as_index=False).first()
-        elif indicator == "All":
-            grouped_df = df.groupby(['Indicator'], as_index=False).first()
-        else:
-            grouped_df = df.iloc[:1]  # Select the first instance of the filtered result
-
         # Dynamically include all relevant columns in the output
         selected_columns = ['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 
                             'Sub Indicator', 'Sub-Sub Indicator'] + selected_years
 
         # Replace NaN values with a placeholder (e.g., "N/A")
-        grouped_df.fillna("N/A", inplace=True)
+        df.fillna("N/A", inplace=True)
 
         # Prepare the output data
-        result = grouped_df[selected_columns].to_dict(orient='records')
+        result = df[selected_columns].to_dict(orient='records')
 
         # Return the response with the filtered data
         return Response(result, status=status.HTTP_200_OK)
