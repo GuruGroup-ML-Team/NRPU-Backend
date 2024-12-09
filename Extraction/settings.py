@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'financial_statement_analysis',
     'Altman_Zscore',
+    'GMM',
 ]
 
 MIDDLEWARE = [
