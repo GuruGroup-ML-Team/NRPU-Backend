@@ -3,12 +3,11 @@ from django.urls import path,include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('calculating.urls')),  # Include calculations app URLs
-    path('api/', include('financial_market_data.urls')),
-    path('api/', include('Economic_Data.urls')),
-    path('api/', include('financial_statement_analysis.urls')),
-    path('api/', include('key_performance_indicator.urls')),
-    path('api/', include('Altman_Zscore.urls')),
-    path('api/', include('GMM.urls')),
+    path('', include('apps.calculating.urls')),  # Include calculations app URLs
+    path('api/', include('apps.economic_data.urls')),
+    path('api/', include('apps.financial_statement_analysis.urls')),
+    path('api/', include('apps.key_performance_indicator.urls')),
+    path('api/', include('apps.altman_z_score.urls')),
+    path('api/', include('apps.generalized_method_of_moment.urls')),
 
 ]

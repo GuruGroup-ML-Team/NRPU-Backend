@@ -48,17 +48,18 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'calculating',
-    'financial_market_data',
-    'Economic_Data',
+    # 'apps.calculating',
+    'apps.calculating.apps.CalculatingConfig',
+
+    'apps.economic_data',
     'corsheaders',
-    'financial_statement_analysis',
-    'Altman_Zscore',
-    'GMM',
+    'apps.financial_statement_analysis',
+    'apps.altman_z_score',
+    'apps.generalized_method_of_moment',
 ]
 
 MIDDLEWARE = [
-     'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
 
