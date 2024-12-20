@@ -15,7 +15,7 @@ class GeneralizedMethodOfMoment(APIView):
         """
         Fetch data from the Altman Z-score API for the years 2018-2022.
         """
-        altman_api_url = "https://nrpuapi-137b31326fcb.herokuapp.com/api/Altman-Zscore/"  # Update with the actual API URL
+        altman_api_url = "https://nrpuapi-137b31326fcb.herokuapp.com/api/altman-zscore/"  # Update with the actual API URL
         years = [2018, 2019, 2020, 2021, 2022]
         zscores = []
 

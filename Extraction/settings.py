@@ -29,13 +29,14 @@ DEBUG = True
 CORS_ALLOWED_ORIGINS = [
      "http://localhost:3000",
      
-     "https://new-dash-board-app.vercel.app"
+     "https://new-dash-board-app.vercel.app",
+     "https://ira-nrpu-gamma.vercel.app/"
     # 'http://localhost:3000/CreditRisk',
     # "http://localhost:3000/financial_statement_analysis/"
 
 ]
 
-ALLOWED_HOSTS = ['https://nrpuapi-137b31326fcb.herokuapp.com/', 'localhost','new-dash-board-app.vercel.app']
+ALLOWED_HOSTS = ['https://nrpuapi-137b31326fcb.herokuapp.com/', 'localhost','new-dash-board-app.vercel.app','ira-nrpu-gamma.vercel.app']
 
 
 # Application definition
