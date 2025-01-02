@@ -30,8 +30,8 @@ CORS_ALLOWED_ORIGINS = [
      "http://localhost:3000",
      
      "https://new-dash-board-app.vercel.app",
-     "https://ira-nrpu-gamma.vercel.app/",
-     "https://nrpu-ira.vercel.app/"
+     "https://ira-nrpu-gamma.vercel.app",
+     "https://nrpu-ira.vercel.app"
     # 'http://localhost:3000/CreditRisk',
     # "http://localhost:3000/financial_statement_analysis/"
 

@@ -2,8 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 import numpy as np
-from statsmodels.sandbox.regression.gmm import GMM # type: ignore
-import requests # type: ignore
+from statsmodels.sandbox.regression.gmm import GMM 
+import requests 
 
 
 class GeneralizedMethodOfMoment(APIView):
