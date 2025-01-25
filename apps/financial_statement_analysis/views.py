@@ -5,19 +5,19 @@ from rest_framework import status
 import re
 
 class FinancialStatementAnalysisView(APIView):
-    def post(self, request):
+    def get(self, request):
         try:
             # Log incoming request data
-            print("Request data (POST):", request.data)
+            print("Request data (GET):", request.query_params)
 
             # Retrieve query parameters from request body
-            sector = request.data.get('sector', 'All')
-            sub_sector = request.data.get('sub_sector', 'All')
-            org_name = request.data.get('org_name', 'All')
-            indicator = request.data.get('indicator', 'All')
-            sub_indicator = request.data.get('sub_indicator', None)
-            sub_sub_indicator = request.data.get('sub_sub_indicator', None)
-            year = request.data.get('year', 'All')
+            sector = request.query_params.get('sector', 'All')
+            sub_sector = request.query_params.get('sub_sector', 'All')
+            org_name = request.query_params.get('org_name', 'All')
+            indicator = request.query_params.get('indicator', 'All')
+            sub_indicator = request.query_params.get('sub_indicator', None)
+            sub_sub_indicator = request.query_params.get('sub_sub_indicator', None)
+            year = request.query_params.get('year', 'All')
 
             # Validate input fields
             if not year:

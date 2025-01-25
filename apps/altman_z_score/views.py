@@ -14,13 +14,15 @@ class AltmanZScoreView(APIView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         try:
-            # Load the initial dataset
+            # Load the primary dataset
             self.df_pivot = pd.read_excel("Data/input_data.xlsx")
-            print("Dataset loaded successfully.")
-            print(self.df_pivot.columns)  # Print the columns of the dataframe
+            # Load sector-wise average dataset (if available)
+            self.df_sector_avg = pd.read_excel("Data/altman_sector_averages.xlsx")  # Example file
+            print("Datasets loaded successfully.")
         except Exception as e:
-            print(f"Error loading dataset: {str(e)}")
-            self.df_pivot = pd.DataFrame()  # Set an empty DataFrame if loading fails
+            print(f"Error loading datasets: {str(e)}")
+            self.df_pivot = pd.DataFrame()  # Fallback to empty DataFrame
+            self.df_sector_avg = pd.DataFrame()  # Fallback for averages
 
     def calculate_altman_score(self, df_filtered):
         """
@@ -70,9 +72,9 @@ class AltmanZScoreView(APIView):
                 x4 = valid_components.get('mve', 0) / valid_components['tl'] if 'mve' in valid_components else 0
 
                 altman_zscore = (
-                    (6.56 * x1) + 
-                    (3.26 * x2) + 
-                    (6.72 * x3) + 
+                    (6.56 * x1) +
+                    (3.26 * x2) +
+                    (6.72 * x3) +
                     (1.05 * x4)
                 )
                 altman_scores[year] = altman_zscore
@@ -82,79 +84,56 @@ class AltmanZScoreView(APIView):
 
         return altman_scores
 
-    def post(self, request):
+    def get_sector_averages(self, sector, year):
         """
-        POST method to filter data and calculate Altman Z-Score using predefined sub-indicators,
-        returning only the first occurrence of each sub-indicator, including handling repeated sub-indicators like 'Cost of Sales'.
+        Retrieve the sector-wise average Altman Z-Score for a specific year or all years.
         """
         try:
-            # Get filter criteria from the request
-            filters = request.data
-            sector = filters.get('sector', None)
-            sub_sector = filters.get('sub_sector', None)
-            org_name = filters.get('org_name', None)
-            year = filters.get('year', None)
+            # Filter the dataset for the given sector
+            if sector != "all":
+                averages_df = self.df_sector_avg[self.df_sector_avg['Sector'] == sector]
+            else:
+                averages_df = self.df_sector_avg
 
-            # Predefined list of sub-indicators
-            predefined_sub_indicators = [
-                "    1. Capital work in progress",
-                " Total Assets (A+B) / Equity & Liabilities (C+D+E)",
-                "    2. Retention in business (F10-F11-F12)",
-                "    6. EBIT (F3-F4+F5)",
-                "    2. Cost of sales",
-                "    5. Total fixed liabilities (D1+D3)"
-            ]
+            # Filter by year if specified
+            if year and year.lower() != "all":
+                year_column = f"AltmanZscore {year}"
+                if year_column not in self.df_sector_avg.columns:
+                    return {"error": f"Year {year} is not available in the dataset."}
 
-            # Predefined list of sectors
-            predefined_sectors = [
-                "Textile Sector", "Sugar", "Food", "Chemicals, Chemical Products and Pharmaceuticals",
-                "Manufacturing", "Mineral products", "Cement", "Motor Vehicles, Trailers & Autoparts",
-                "Fuel and Energy Sector", "Information and Communication Services", 
-                "Coke and Refined Petroleum Products", "Paper, Paperboard and Products",
-                "Electrical Machinery and Apparatus", "Other Services Activities"
-            ]
+                # Select only the relevant year column and average row
+                averages_df = averages_df[averages_df['Org Name'] == 'Average'][['Sector', year_column]]
+                return averages_df.rename(columns={year_column: "AltmanZscore"}).to_dict(orient="records")
+            else:
+                # Return all year columns for the averages row
+                averages_df = averages_df[averages_df['Org Name'] == 'Average']
+                averages_df = averages_df.drop(columns=['Sub-Sector', 'Org Name'], errors='ignore')
+                return averages_df.to_dict(orient="records")
 
-            # Debugging: Check if DataFrame is loaded correctly
+        except Exception as e:
+            print(f"Error retrieving sector averages: {str(e)}")
+            return {"error": str(e)}
+
+    def get(self, request):
+        """
+        GET method to return Altman Z-Scores or sector-wise averages based on filters.
+        """
+        try:
+            # Get filter criteria from query parameters
+            sector = request.query_params.get('sector', None)
+            sub_sector = request.query_params.get('sub_sector', None)
+            org_name = request.query_params.get('org_name', None)
+            year = request.query_params.get('year', None)
+
+            # Filter the primary dataset for specific sector, sub-sector, and org_name
             filtered_df = self.df_pivot
-            print("Before filtering:")
-            print(filtered_df.head())
 
-            if sector and sector.lower() == "all":
-                if not year or year.lower() == "all":
-                    return Response(
-                        {"error": "Year must be specified when sector is 'All'."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                # Calculate Altman Z-Score for all predefined sectors
-                zscore_results = {}
-                for sec in predefined_sectors:
-                    sector_df = filtered_df[filtered_df['Sector'] == sec]
-                    sector_df = sector_df[sector_df['Sub Indicator'].isin(predefined_sub_indicators)]
-                    sector_df['Sub Indicator'] = sector_df['Sub Indicator'].str.strip().str.lower()
-                    sector_df = sector_df.drop_duplicates(subset=['Sub Indicator'], keep='first')
-                    zscore = self.calculate_altman_score(sector_df)
-                    zscore_results[sec] = zscore.get(year, "Insufficient data or error in calculation")
-
-                response_data = {
-                    "sector": "All",
-                    "year": year,
-                    "altman_zscore": zscore_results
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
-
-            # Apply filters for specific sector, sub-sector, and org_name
             if sector:
                 filtered_df = filtered_df[filtered_df['Sector'] == sector]
             if sub_sector:
                 filtered_df = filtered_df[filtered_df['Sub-Sector'] == sub_sector]
             if org_name:
                 filtered_df = filtered_df[filtered_df['Org Name'] == org_name]
-
-            # Filter based on predefined sub-indicators
-            filtered_df = filtered_df[filtered_df['Sub Indicator'].isin(predefined_sub_indicators)]
-            filtered_df['Sub Indicator'] = filtered_df['Sub Indicator'].str.strip().str.lower()
-            filtered_df = filtered_df.drop_duplicates(subset=['Sub Indicator'], keep='first')
 
             # Apply year filter if specified
             if year and year != "all":
