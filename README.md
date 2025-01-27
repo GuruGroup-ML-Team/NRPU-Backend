@@ -1,6 +1,6 @@
 # NRPU Backend
 
-The **NRPU** (National Research Program for Universities) backend handles core operations and provides the foundation for managing research programs. This lightweight backend currently uses **Excel sheets** as the primary database, making it simple and accessible while maintaining essential functionality.
+The **NRPU** (National Research Program for Universities) backend handles core operations and provides the foundation for managing research programs. This lightweight backend currently uses **Excel sheets** as the primary database for now, making it simple and accessible while maintaining essential functionality.
 
 ---
 
@@ -60,7 +60,7 @@ Ensure you have the following installed:
     ```
     
 4. Set up necessary configurations (if any):
-    - Ensure the Excel files for data storage are located in the appropriate directory (e.g., `data/` folder).
+    - Ensure the Excel files for data storage are located in the appropriate directory (e.g., `Data/` folder).
     - Update file paths in the code if needed.
 5. Run the development server:
     
@@ -74,11 +74,11 @@ Ensure you have the following installed:
 ## Folder Structure
 
 ```
-nrpu/
-├── nrpu/                  # Project settings
+Extraction/
+├── Extraction/            # Project settings
 ├── apps/
 │------  App according to need
-├── data/                  # Excel sheets for data storage
+├── Data/                  # Excel sheets for data storage
 ├── static/                # Static files
 ├── templates/             # HTML templates
 └── README.md              # Project documentation
