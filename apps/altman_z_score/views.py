@@ -4,13 +4,12 @@ from rest_framework import status
 import pandas as pd
 import numpy as np
 
-
 class AltmanZScoreView(APIView):
     """
     API to calculate Altman Z-Score and return filtered data based on
     Sector, Sub-Sector, Org Name, and Year.
     """
-
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         try:
@@ -114,26 +113,53 @@ class AltmanZScoreView(APIView):
             print(f"Error retrieving sector averages: {str(e)}")
             return {"error": str(e)}
 
+
     def get(self, request):
         """
         GET method to return Altman Z-Scores or sector-wise averages based on filters.
         """
         try:
-            # Get filter criteria from query parameters
+            # Get filter criteria from the query parameters
             sector = request.query_params.get('sector', None)
             sub_sector = request.query_params.get('sub_sector', None)
             org_name = request.query_params.get('org_name', None)
             year = request.query_params.get('year', None)
 
+            # Predefined list of sub-indicators
+            predefined_sub_indicators = [
+                "    1. Capital work in progress",
+                " Total Assets (A+B) / Equity & Liabilities (C+D+E)",
+                "    2. Retention in business (F10-F11-F12)",
+                "    6. EBIT (F3-F4+F5)",
+                "    2. Cost of sales",
+                "    5. Total fixed liabilities (D1+D3)"
+            ]
+
+            if sector and sector.lower() == "all":
+                # Fetch pre-calculated sector-wise averages
+                sector_avg_scores = self.get_sector_averages("all", year)
+                return Response(
+                    {
+                        "sector": "All",
+                        "year": year,
+                        "sector_avg_scores": sector_avg_scores
+                    },
+                    status=status.HTTP_200_OK
+                )
+
             # Filter the primary dataset for specific sector, sub-sector, and org_name
             filtered_df = self.df_pivot
-
             if sector:
                 filtered_df = filtered_df[filtered_df['Sector'] == sector]
             if sub_sector:
                 filtered_df = filtered_df[filtered_df['Sub-Sector'] == sub_sector]
             if org_name:
                 filtered_df = filtered_df[filtered_df['Org Name'] == org_name]
+
+            # Filter based on predefined sub-indicators
+            filtered_df = filtered_df[filtered_df['Sub Indicator'].isin(predefined_sub_indicators)]
+            filtered_df['Sub Indicator'] = filtered_df['Sub Indicator'].str.strip().str.lower()
+            filtered_df = filtered_df.drop_duplicates(subset=['Sub Indicator'], keep='first')
 
             # Apply year filter if specified
             if year and year != "all":
