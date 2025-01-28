@@ -101,11 +101,11 @@ class AltmanZScoreView(APIView):
                     return {"error": f"Year {year} is not available in the dataset."}
 
                 # Select only the relevant year column and average row
-                averages_df = averages_df[averages_df['Org Name'] == 'Average'][['Sector', year_column]]
+                averages_df = averages_df[averages_df['Org Name'] == 'Sector Average'][['Sector', year_column]]
                 return averages_df.rename(columns={year_column: "AltmanZscore"}).to_dict(orient="records")
             else:
                 # Return all year columns for the averages row
-                averages_df = averages_df[averages_df['Org Name'] == 'Average']
+                averages_df = averages_df[averages_df['Org Name'] == 'Sector Average']
                 averages_df = averages_df.drop(columns=['Sub-Sector', 'Org Name'], errors='ignore')
                 return averages_df.to_dict(orient="records")
 
