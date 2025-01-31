@@ -146,7 +146,6 @@ class FinancialStatementAnalysisView(APIView):
 
         print(f"Detected hierarchy level: {hierarchy_level}")
         
-        # Apply filters based on hierarchy level
         if hierarchy_level >= 1:
             filtered_df = filtered_df[filtered_df['Sector'].str.lower() == query_params['sector'].lower()]
         
@@ -156,13 +155,12 @@ class FinancialStatementAnalysisView(APIView):
         if hierarchy_level >= 3:
             query_indicator = query_params['indicator'].replace(' ', '+')
             filtered_df = filtered_df[filtered_df['Indicator'].str.replace(' ', '+').str.lower() == query_indicator.lower()]
-            
-            # If only sector, sub_sector, and indicator are specified, ensure sub_indicator and sub_sub_indicator are empty
+        
             if hierarchy_level == 3:
                 filtered_df = filtered_df[
-                    (filtered_df['Sub Indicator'].isna()) | 
-                    (filtered_df['Sub Indicator'].str.strip() == '') |
-                    (filtered_df['Sub Indicator'].str.lower() == 'nan')
+                    (filtered_df['Sub Indicator'].isna()) |  #is missing
+                    (filtered_df['Sub Indicator'].str.strip() == '') |   #is empty string
+                    (filtered_df['Sub Indicator'].str.lower() == 'nan')  #is nan
                 ]
                 filtered_df = filtered_df[
                     (filtered_df['Sub-Sub Indicator'].isna()) | 
@@ -173,7 +171,6 @@ class FinancialStatementAnalysisView(APIView):
         if hierarchy_level >= 4:
             filtered_df = filtered_df[filtered_df['Sub Indicator'].str.lower() == query_params['sub_indicator'].lower()]
             
-            # If only up to sub_indicator is specified, ensure sub_sub_indicator is empty
             if hierarchy_level == 4:
                 filtered_df = filtered_df[
                     (filtered_df['Sub-Sub Indicator'].isna()) | 
@@ -191,7 +188,6 @@ class FinancialStatementAnalysisView(APIView):
         if not filtered_df.empty:
             results = []
             
-            # Determine grouping columns based on hierarchy level
             used_columns = []
             if hierarchy_level >= 1:
                 used_columns.append('Sector')
@@ -204,24 +200,21 @@ class FinancialStatementAnalysisView(APIView):
             if hierarchy_level == 5:
                 used_columns.append('Sub-Sub Indicator')
             
-            # If no parameters provided, use all data
+            # use all data if no parameters are provided
             if not used_columns:
                 used_columns = ['Sector']
             
-            # Group by the used columns
             grouped = filtered_df.groupby(used_columns)
             
             for group_name, group_df in grouped:
                 result = {}
                 
-                # Handle both single string and tuple group names
                 if isinstance(group_name, tuple):
                     for col, value in zip(used_columns, group_name):
                         result[col] = value
                 else:
                     result[used_columns[0]] = group_name
                 
-                # Calculate averages based on year selection
                 if selected_year.lower() != 'all':
                     year_values = group_df[selected_year].dropna()
                     result[selected_year] = float(year_values.mean()) if not year_values.empty else None
@@ -241,8 +234,7 @@ class FinancialStatementAnalysisView(APIView):
             columns = ['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 
                       'Sub-Sub Indicator', '2017', '2018', '2019', '2020', '2021', '2022']
             try:
-                df = pd.read_excel('Data/input_data 5.xlsx', header=None, names=columns)
-                # Clean the data by stripping whitespace
+                df = pd.read_excel('Data/input_data.xlsx', header=None, names=columns)
                 for col in ['Sector', 'Sub-Sector', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator']:
                     df[col] = df[col].astype(str).str.strip()
                 print("Successfully loaded data with shape:", df.shape)
@@ -270,8 +262,6 @@ class FinancialStatementAnalysisView(APIView):
             print("\nReceived query parameters:")
             for key, value in query_params.items():
                 print(f"{key}: {value}")
-
-            # Calculate results
             results = self.calculate_averages(df, query_params)
 
             if not results:
@@ -300,3 +290,20 @@ class FinancialStatementAnalysisView(APIView):
                 {"error": f"Unexpected error: {str(e)}"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
