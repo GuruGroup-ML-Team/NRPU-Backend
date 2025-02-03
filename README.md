@@ -42,7 +42,7 @@ Ensure you have the following installed:
 1. Clone the repository:
     
     ```bash
-    git clone https://github.com/{your-username}/nrpu.git
+    git clone https://github.com/{your-username}/NRPU-Backend.git
     cd nrpu
     ```
     
