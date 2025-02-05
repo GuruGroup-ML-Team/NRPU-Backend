@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 import re
 
+
 class FinancialStatementAnalysisView(APIView):
     def get(self, request):
         try:
