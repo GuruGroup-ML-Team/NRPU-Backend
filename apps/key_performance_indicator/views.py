@@ -151,7 +151,6 @@
 
 
 
-
 import pandas as pd
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -208,7 +207,7 @@ class KeyPerformanceIndicatorView(APIView):
                 'Sub Indicator': sub_indicator.strip(),
                 'Sub-Sub Indicator': sub_sub_indicator.strip() if sub_sub_indicator else "",
                 'OverAll Average': {
-                    year: round(float(subsector_sums[year] / total_orgs), 5) if subsector_sums[year] > 0 else "N/A" 
+                    year: round(float(subsector_sums[year] / total_orgs), 5) if subsector_sums[year] != 0 else "N/A" 
                     for year in selected_years
                 }
             })
@@ -217,10 +216,7 @@ class KeyPerformanceIndicatorView(APIView):
     
     def get(self, request, *args, **kwargs):
         try:
-            # Log incoming request data
             print("Request data (GET):", request.query_params)
-
-            # Retrieve query parameters from request body
             sector = request.query_params.get('sector', 'All')
             sub_sector = request.query_params.get('sub_sector', 'All')
             org_name = request.query_params.get('org_name', 'All')
@@ -231,7 +227,16 @@ class KeyPerformanceIndicatorView(APIView):
             # Validate input fields
             if not year:
                 return Response({"error": "Year is required."}, status=status.HTTP_400_BAD_REQUEST)
-
+            
+            if sub_indicator == 'All':
+                return Response({"error": "Sub Indicator cannot be 'All'."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not sub_sub_indicator:
+                return Response({"error": "Sub_Sub_Indicator is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if sub_sub_indicator == 'All':
+                return Response({"error": "Sub Sub Indicator cannot be 'All'."}, status=status.HTTP_400_BAD_REQUEST)
+            
             # Define column names
             columns = ['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator', 
                        '2017', '2018', '2019', '2020', '2021', '2022']
@@ -249,6 +254,7 @@ class KeyPerformanceIndicatorView(APIView):
             df['Sub-Sub Indicator'] = df['Sub-Sub Indicator'].str.strip()
             df['Sector'] = df['Sector'].str.strip()
             df['Sub-Sector'] = df['Sub-Sector'].str.strip()
+            df['Org Name'] = df['Org Name'].str.strip()
 
             # Filter to only include "I. Key Performance Indicators"
             df = df[df['Indicator'] == "I. Key Performance Indicators"]
@@ -282,19 +288,42 @@ class KeyPerformanceIndicatorView(APIView):
                 df = df[df['Sector'].str.strip() == sector.strip()]
 
             # Indicator filtering
-            if sub_indicator != 'All':
-                clean_sub_indicator = sub_indicator.strip()
-                df = df[df['Sub Indicator'].str.strip().str.contains(clean_sub_indicator, case=False, na=False)]
+            # if sub_indicator != 'All':
+            #     clean_sub_indicator = sub_indicator.strip()
+            #     df = df[df['Sub Indicator'].str.strip().str.contains(clean_sub_indicator, case=False, na=False)]
                 
-                if sub_sub_indicator:
-                    clean_sub_sub_indicator = sub_sub_indicator.strip()
-                    df['Clean Sub-Sub'] = df['Sub-Sub Indicator'].str.extract(r'([^(]+)')[0].str.strip()
-                    df = df[df['Clean Sub-Sub'].str.contains(clean_sub_sub_indicator, case=False, na=False)]
+            #     if sub_sub_indicator:
+            clean_sub_sub_indicator = sub_sub_indicator.strip()
+            df['Clean Sub-Sub'] = df['Sub-Sub Indicator'].str.extract(r'([^(]+)')[0].str.strip()
+            df = df[df['Clean Sub-Sub'].str.contains(clean_sub_sub_indicator, case=False, na=False)]
 
             result = []
 
+            # New Case: Specific organization name
+            if org_name != 'All':
+                # First try exact match
+                filtered_df = df[df['Org Name'] == org_name.strip()]
+                
+                # If no exact match, try a more flexible search
+                if filtered_df.empty:
+                    filtered_df = df[df['Org Name'].str.contains(org_name.strip(), case=False, na=False)]
+                
+                if not filtered_df.empty:
+                    # Process each matching row
+                    for idx, row in filtered_df.iterrows():
+                        result.append({
+                            'Sector': row['Sector'],
+                            'Sub-Sector': row['Sub-Sector'],
+                            'Org Name': row['Org Name'],
+                            'Indicator': "I. Key Performance Indicators",
+                            'Sub Indicator': sub_indicator.strip(),
+                            'Sub-Sub Indicator': sub_sub_indicator.strip() if sub_sub_indicator else "",
+                            **{year: round(float(row[year]), 5) if not pd.isna(row[year]) else "N/A" 
+                               for year in selected_years}
+                        })
+
             # Case 1: Specific sector, specific sub-sector, org_name='All'
-            if sector != 'All' and sub_sector != 'All' and org_name == 'All':
+            elif sector != 'All' and sub_sector != 'All' and org_name == 'All':
                 filtered_df = df[df['Sub-Sector'].str.strip() == sub_sector.strip()]
                 if not filtered_df.empty:
                     avg_values = filtered_df[selected_years].mean()
@@ -319,16 +348,27 @@ class KeyPerformanceIndicatorView(APIView):
                         sector_results = self.calculate_subsector_averages(
                             sector_data, curr_sector, selected_years, sub_indicator, sub_sub_indicator
                         )
-                        result.extend(sector_results)
+                        if isinstance(sector_results, list):
+                            result.extend(sector_results)
+                        else:
+                            # Handle case where an error dict is returned
+                            if 'error' in sector_results:
+                                return Response(sector_results, status=status.HTTP_400_BAD_REQUEST)
 
             # Case 3: Multiple sub-sectors within a sector
             elif sector != 'All' and sub_sector == 'All':
-                result = self.calculate_subsector_averages(
+                sector_results = self.calculate_subsector_averages(
                     df, sector, selected_years, sub_indicator, sub_sub_indicator
                 )
+                if isinstance(sector_results, list):
+                    result.extend(sector_results)
+                else:
+                    # Handle case where an error dict is returned
+                    if 'error' in sector_results:
+                        return Response(sector_results, status=status.HTTP_400_BAD_REQUEST)
 
             print("Filtered DataFrame:")
-            print(df[['Sector', 'Sub-Sector', 'Sub Indicator', 'Sub-Sub Indicator'] + selected_years])
+            print(df[['Sector', 'Sub-Sector', 'Org Name', 'Sub Indicator', 'Sub-Sub Indicator'] + selected_years])
             print("\nCalculated Result:")
             print(result)
 
