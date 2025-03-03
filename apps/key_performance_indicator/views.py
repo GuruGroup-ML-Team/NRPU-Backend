@@ -169,7 +169,7 @@ class KeyPerformanceIndicatorView(APIView):
         subsector_sums = {year: 0.0 for year in selected_years}
         
         # Get number of unique sub-sectors
-        num_subsectors = len(df['Sub-Sector'].unique())
+        # num_subsectors = len(df['Sub-Sector'].unique())
         
         # First calculate average for each sub-sector
         for curr_subsector in df['Sub-Sector'].unique():
@@ -299,12 +299,10 @@ class KeyPerformanceIndicatorView(APIView):
 
             result = []
 
-            # New Case: Specific organization name
             if org_name != 'All':
                 # First try exact match
                 filtered_df = df[df['Org Name'] == org_name.strip()]
                 
-                # If no exact match, try a more flexible search
                 if filtered_df.empty:
                     filtered_df = df[df['Org Name'].str.contains(org_name.strip(), case=False, na=False)]
                 
