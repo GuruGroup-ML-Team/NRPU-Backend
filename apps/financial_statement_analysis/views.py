@@ -237,11 +237,6 @@
 
 
 
-
-
-
-
-
 import pandas as pd
 import numpy as np
 from rest_framework.response import Response
@@ -251,6 +246,59 @@ import re
 
 
 class FinancialStatementAnalysisView(APIView):
+    def calculate_subsector_averages(self, df, sector, selected_years,indicator, sub_indicator, sub_sub_indicator):
+        """Helper function to calculate sub-sector and overall sector averages"""
+        result = []
+        total_orgs = 0
+        
+        # For storing sum of all sub-sector values
+        subsector_sums = {year: 0.0 for year in selected_years}
+        
+        num_subsectors = len(df['Sub-Sector'].unique())
+        
+        #calculate average for each sub-sector
+        for curr_subsector in df['Sub-Sector'].unique():
+            subsector_data = df[df['Sub-Sector'] == curr_subsector]
+            if not subsector_data.empty:
+                # Calculate average for current sub-sector
+                num_orgs = len(subsector_data['Org Name'].unique())
+                subsector_avg = subsector_data[selected_years].mean()
+                
+                
+                for year in selected_years:
+                    if not pd.isna(subsector_avg[year]):
+                        subsector_sums[year] += subsector_avg[year]
+                
+                total_orgs += num_orgs
+                
+                result.append({
+                    'Sector': sector,
+                    'Sub-Sector': curr_subsector,
+                    'Org Name': f'All ({num_orgs} organizations)',
+                    'Indicator': indicator,
+                    'Sub Indicator': sub_indicator.strip() if sub_indicator else "",
+                    'Sub-Sub Indicator': sub_sub_indicator.strip() if sub_sub_indicator else "",
+                    **{year: round(float(subsector_avg[year]), 5) if not pd.isna(subsector_avg[year]) else "N/A" 
+                    for year in selected_years}
+                })
+        
+        #if multiple sub sectors, only then calculate overall average
+        if total_orgs > 0 and num_subsectors > 1:
+            result.append({
+                'Sector': sector,
+                'Sub-Sector': 'All',
+                'Org Name': f'All (Total {total_orgs} organizations)',
+                'Indicator': indicator,
+                'Sub Indicator': sub_indicator.strip() if sub_indicator else "",
+                'Sub-Sub Indicator': sub_sub_indicator.strip() if sub_sub_indicator else "",
+                'OverAll Average': {
+                    year: round(float(subsector_sums[year] / total_orgs), 5) if subsector_sums[year] != 0 else "N/A" 
+                    for year in selected_years
+                }
+            })
+            
+        return result, total_orgs, subsector_sums
+    
     def get(self, request):
         try:
             print("Request data (GET):", request.query_params)
@@ -376,6 +424,7 @@ class FinancialStatementAnalysisView(APIView):
                 if sub_sub_indicator:
                     df = df[df['Sub-Sub Indicator'].str.contains(f"{re.escape(sub_sub_indicator)}", case=False, na=False)]
 
+            # Case 1: When sector == 'All' and indicator != 'All' 
             if sector == 'All' and indicator != 'All':
                 indicator_filter = df['Indicator'].str.contains(f"{re.escape(indicator)}", case=False, na=False)
                 
@@ -404,49 +453,32 @@ class FinancialStatementAnalysisView(APIView):
                     sector_df = df[df['Sector'] == sector_name]
                     
                     try:
-                        subsector_avgs = sector_df.groupby('Sub-Sector')[selected_years].apply(
-                            lambda x: x.apply(pd.to_numeric, errors='coerce').mean()
-                        ).reset_index()
+                        sector_results, total_orgs, subsector_sums = self.calculate_subsector_averages(
+                            sector_df, 
+                            sector_name, 
+                            selected_years, 
+                            indicator,
+                            sub_indicator,
+                            sub_sub_indicator
+                        )
                         
-                        sector_avg = subsector_avgs[selected_years].mean()
-                        
+                        # Format the result for API response
                         sector_data = {
                             'Sector': sector_name,
+                            'Organizations': f'All ({total_orgs} organizations)',
                             'Indicator': indicator,
                             'Sub_Indicator': sub_indicator if sub_indicator else None,
                             'Sub_Sub_Indicator': sub_sub_indicator if sub_sub_indicator else None,
+                            'Subsector_Averages': sector_results[:-1] if len(sector_results) > 1 else sector_results,
+                            # 'Total_Organizations': total_orgs,
                         }
                         
-                        if sub_sub_indicator is not None:
-                            sector_data['Sub_Sub_Indicator'] = sub_sub_indicator
-                        
-                        sector_data['Subsector_Averages'] = []
-                        sector_data['Combined Sector Average'] = {
-                            year: float(sector_avg[year]) if pd.notna(sector_avg[year]) else None 
-                            for year in selected_years
-                        }
-                        
-                        for _, subsector_row in subsector_avgs.iterrows():
-                            subsector_data = {
-                                'Sub-Sector': subsector_row['Sub-Sector']
+                        # Add overall average if it exists
+                        if total_orgs > 0 and len(sector_df['Sub-Sector'].unique()) > 1:
+                            sector_data['Combined Sector Average'] = {
+                                year: subsector_sums[year] / total_orgs if subsector_sums[year] != 0 else None
+                                for year in selected_years
                             }
-                            for year in selected_years:
-                                value = subsector_row[year]
-                                subsector_data[year] = round(float(value), 2) if pd.notna(value) else None
-                            
-                            subsector_orgs = sector_df[sector_df['Sub-Sector'] == subsector_row['Sub-Sector']]
-                            org_details = []
-                            
-                            for _, org in subsector_orgs.iterrows():
-                                org_entry = {
-                                    'Org_Name': org['Org Name']
-                                }
-                                for year in selected_years:
-                                    value = org[year]
-                                    org_entry[year] = round(float(value), 2) if pd.notna(value) else None
-                                org_details.append(org_entry)
-                            
-                            sector_data['Subsector_Averages'].append(subsector_data)
                         
                         result.append(sector_data)
                     except Exception as e:
@@ -455,11 +487,100 @@ class FinancialStatementAnalysisView(APIView):
                 
                 return Response(result, status=status.HTTP_200_OK)
 
+            # Case 2: When org_name == 'All' and we need to calculate averages 
+            if sector != 'All' and org_name == 'All' and indicator != 'All':
+                try:
+                    # Filter to get only the data for the specific indicator
+                    indicator_filter = df['Indicator'].str.contains(f"{re.escape(indicator)}", case=False, na=False)
+                    
+                    if sub_sub_indicator:
+                        filtered_df = df[
+                            indicator_filter &
+                            df['Sub Indicator'].str.contains(f"{re.escape(sub_indicator)}", case=False, na=False) &
+                            df['Sub-Sub Indicator'].str.contains(f"{re.escape(sub_sub_indicator)}", case=False, na=False)
+                        ]
+                    elif sub_indicator:
+                        filtered_df = df[
+                            indicator_filter &
+                            df['Sub Indicator'].str.contains(f"{re.escape(sub_indicator)}", case=False, na=False) &
+                            (df['Sub-Sub Indicator'].isna())
+                        ]
+                    else:
+                        filtered_df = df[
+                            indicator_filter &
+                            (df['Sub Indicator'].isna()) &
+                            (df['Sub-Sub Indicator'].isna())
+                        ]
+                    
+                    if filtered_df.empty:
+                        return Response({"message": "No data found matching the criteria."}, 
+                                    status=status.HTTP_404_NOT_FOUND)
+                    
+                    
+                    if sub_sector != 'All':
+                        subsector_df = filtered_df[filtered_df['Sub-Sector'] == sub_sector]
+                        total_orgs = subsector_df['Org Name'].nunique()
+                        # Calculate averages for organizations in this subsector
+                        # org_data = []
+                        for _, org in subsector_df.iterrows():
+                            org_entry = {
+                                'Org_Name': org['Org Name']
+                            }
+                            for year in selected_years:
+                                value = org[year]
+                                org_entry[year] = round(float(value), 5) if pd.notna(value) else None
+                            # org_data.append(org_entry)
+                        
+                        subsector_avg = subsector_df[selected_years].apply(pd.to_numeric, errors='coerce').mean()
+                        
+                        result = {
+                            'Sector': sector,
+                            'Sub-Sector': sub_sector,
+                            'Organizations': f'All (Total {total_orgs} organizations)',
+                            'Indicator': indicator,
+                            'Sub_Indicator': sub_indicator if sub_indicator else None,
+                            'Sub_Sub_Indicator': sub_sub_indicator if sub_sub_indicator else None,
+                            'Subsector_Average': {
+                                year: round(float(subsector_avg[year]), 5) if pd.notna(subsector_avg[year]) else None
+                                for year in selected_years
+                            }
+                        }
+                    else:
+                        sector_results, total_orgs, subsector_sums = self.calculate_subsector_averages(
+                            filtered_df, 
+                            sector, 
+                            selected_years, 
+                            indicator,
+                            sub_indicator,
+                            sub_sub_indicator
+                        )
+                        
+                        result = {
+                            'Sector': sector,
+                            'Indicator': indicator,
+                            'Sub_Indicator': sub_indicator if sub_indicator else None,
+                            'Sub_Sub_Indicator': sub_sub_indicator if sub_sub_indicator else None,
+                            'Subsector_Averages': sector_results[:-1] if len(sector_results) > 1 else sector_results,
+                            # 'Total_Organizations': total_orgs,
+                        }
+                        
+                        if total_orgs > 0 and len(filtered_df['Sub-Sector'].unique()) > 1:
+                            result['Combined Sector Average'] = {
+                                year: round(float(subsector_sums[year] / total_orgs), 2) if subsector_sums[year] != 0 else None
+                                for year in selected_years
+                            }
+                    
+                    return Response(result, status=status.HTTP_200_OK)
+                    
+                except Exception as e:
+                    print(f"Error processing organization averages: {str(e)}")
+                    return Response({"error": f"Error calculating averages: {str(e)}"}, 
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
             selected_columns = ['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator']
             
-            if sub_sub_indicator is not None:
-                selected_columns.append('Sub-Sub Indicator')
-            
+            # if sub_sub_indicator is not None:
+            #     selected_columns.append('Sub-Sub Indicator')
             selected_columns.extend(selected_years)
             
             df = df[selected_columns]
