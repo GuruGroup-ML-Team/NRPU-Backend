@@ -263,7 +263,7 @@ class FinancialStatementAnalysisView(APIView):
                 num_orgs = len(subsector_data['Org Name'].unique())
                 subsector_avg = subsector_data[selected_years].mean()
                 
-                # Add subsector's actual values to total sum
+                
                 for year in selected_years:
                     if not pd.isna(subsector_avg[year]):
                         subsector_sums[year] += subsector_avg[year]
@@ -281,7 +281,7 @@ class FinancialStatementAnalysisView(APIView):
                     for year in selected_years}
                 })
         
-        #Only calculate overall sector average if there are multiple sub-sectors
+        #if multiple sub sectors, only then calculate overall average
         if total_orgs > 0 and num_subsectors > 1:
             result.append({
                 'Sector': sector,
@@ -464,8 +464,8 @@ class FinancialStatementAnalysisView(APIView):
                         # Format the result for API response
                         sector_data = {
                             'Sector': sector_name,
-                            'Indicator': indicator,
                             'Organizations': f'All ({total_orgs} organizations)',
+                            'Indicator': indicator,
                             'Sub_Indicator': sub_indicator if sub_indicator else None,
                             'Sub_Sub_Indicator': sub_sub_indicator if sub_sub_indicator else None,
                             'Subsector_Averages': sector_results[:-1] if len(sector_results) > 1 else sector_results,
@@ -518,29 +518,29 @@ class FinancialStatementAnalysisView(APIView):
                     
                     if sub_sector != 'All':
                         subsector_df = filtered_df[filtered_df['Sub-Sector'] == sub_sector]
-                        
+                        total_orgs = subsector_df['Org Name'].nunique()
                         # Calculate averages for organizations in this subsector
-                        org_data = []
+                        # org_data = []
                         for _, org in subsector_df.iterrows():
                             org_entry = {
                                 'Org_Name': org['Org Name']
                             }
                             for year in selected_years:
                                 value = org[year]
-                                org_entry[year] = round(float(value), 2) if pd.notna(value) else None
-                            org_data.append(org_entry)
+                                org_entry[year] = round(float(value), 5) if pd.notna(value) else None
+                            # org_data.append(org_entry)
                         
                         subsector_avg = subsector_df[selected_years].apply(pd.to_numeric, errors='coerce').mean()
                         
                         result = {
                             'Sector': sector,
                             'Sub-Sector': sub_sector,
-                            'Organizations': org_data,
+                            'Organizations': f'All (Total {total_orgs} organizations)',
                             'Indicator': indicator,
                             'Sub_Indicator': sub_indicator if sub_indicator else None,
                             'Sub_Sub_Indicator': sub_sub_indicator if sub_sub_indicator else None,
                             'Subsector_Average': {
-                                year: round(float(subsector_avg[year]), 2) if pd.notna(subsector_avg[year]) else None
+                                year: round(float(subsector_avg[year]), 5) if pd.notna(subsector_avg[year]) else None
                                 for year in selected_years
                             }
                         }
@@ -560,7 +560,7 @@ class FinancialStatementAnalysisView(APIView):
                             'Sub_Indicator': sub_indicator if sub_indicator else None,
                             'Sub_Sub_Indicator': sub_sub_indicator if sub_sub_indicator else None,
                             'Subsector_Averages': sector_results[:-1] if len(sector_results) > 1 else sector_results,
-                            'Total_Organizations': total_orgs,
+                            # 'Total_Organizations': total_orgs,
                         }
                         
                         if total_orgs > 0 and len(filtered_df['Sub-Sector'].unique()) > 1:
@@ -578,8 +578,8 @@ class FinancialStatementAnalysisView(APIView):
 
             selected_columns = ['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator']
             
-            if sub_sub_indicator is not None:
-                selected_columns.append('Sub-Sub Indicator')
+            # if sub_sub_indicator is not None:
+            #     selected_columns.append('Sub-Sub Indicator')
             selected_columns.extend(selected_years)
             
             df = df[selected_columns]

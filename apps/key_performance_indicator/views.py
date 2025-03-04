@@ -169,7 +169,7 @@ class KeyPerformanceIndicatorView(APIView):
         subsector_sums = {year: 0.0 for year in selected_years}
         
         # Get number of unique sub-sectors
-        # num_subsectors = len(df['Sub-Sector'].unique())
+        num_subsectors = len(df['Sub-Sector'].unique())
         
         # First calculate average for each sub-sector
         for curr_subsector in df['Sub-Sector'].unique():
