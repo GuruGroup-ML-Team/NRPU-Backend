@@ -9,5 +9,6 @@ urlpatterns = [
     path('api/', include('apps.key_performance_indicator.urls')),
     path('api/', include('apps.altman_z_score.urls')),
     path('api/', include('apps.generalized_method_of_moment.urls')),
+    path('api/', include('apps.bank_api.urls')),
 
 ]

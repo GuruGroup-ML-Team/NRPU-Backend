@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'apps.financial_statement_analysis',
     'apps.altman_z_score',
     'apps.generalized_method_of_moment',
+    'apps.bank_api'
 ]
 
 MIDDLEWARE = [
