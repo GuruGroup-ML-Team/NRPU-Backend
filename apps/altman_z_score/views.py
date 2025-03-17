@@ -349,6 +349,55 @@ class AltmanZScoreView(APIView):
             org_name = request.query_params.get('org_name', None)
             year = request.query_params.get('year', None)
 
+            if org_name and org_name.lower() == "all":
+                try:
+                    # Get rows where Org Name contains "Average"
+                    average_data = self.df_sector_avg[self.df_sector_avg['Org Name'].str.contains('Average', case=False, na=False)]
+                    
+                    if sector and sector.lower() != "all":
+                        average_data = average_data[average_data['Sector'] == sector]
+                    
+                    if sub_sector:
+                        average_data = average_data[average_data['Sub-Sector'] == sub_sector]
+                    
+                    if average_data.empty:
+                        return Response({"message": "No average data found matching the specified criteria."}, 
+                                        status=status.HTTP_404_NOT_FOUND)
+                    
+                    if year and year.lower() != "all":
+                        year_column = f"AltmanZscore {year}"
+                        if year_column not in average_data.columns:
+                            return Response({"message": f"No data found for the year {year}."},
+                                        status=status.HTTP_404_NOT_FOUND)
+                                
+                        result_value = average_data[year_column].iloc[0]
+                                
+                        return Response({
+                            "sector": sector,
+                            "sub_sector": sub_sector,
+                            "org_name": "All",
+                            "year": year,
+                            "altman_zscore": result_value
+                        }, status=status.HTTP_200_OK)
+                    else:
+                        year_columns = [col for col in average_data.columns if col.startswith('AltmanZscore')]
+                                
+                        result_dict = {}
+                        for col in year_columns:
+                            year_value = col.split(' ')[1]  
+                            result_dict[year_value] = average_data[col].iloc[0]
+                                
+                        return Response({
+                            "sector": sector,
+                            "sub_sector": sub_sector,
+                            "org_name": "All",
+                            "year": "all",
+                            "altman_zscore": result_dict
+                        }, status=status.HTTP_200_OK)
+                except Exception as e:
+                    print(f"Error processing average data: {str(e)}")
+                    return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
             if sector and sector.lower() == "all":
                 sector_avg_scores = self.get_sector_averages("all", year)
                 return Response(
