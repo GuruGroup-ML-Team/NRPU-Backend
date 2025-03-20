@@ -306,7 +306,7 @@ class GeneralizedMethodOfMoment(APIView):
                             if not pd.isna(gmm_score):
                                 sector_groups[sector_name]["sub_sectors"][sub_sector_name]["years"][year_str] = gmm_score
                 
-                # Now calculate overall sector averages by summing sub-sector averages and dividing by total orgs
+                # Calculate overall sector averages by summing sub-sector averages and dividing by total orgs
                 for sector_name, sector_info in sector_groups.items():
                     for year_str in [str(yr) for yr in all_possible_years]:
                         valid_subsectors = []
@@ -315,13 +315,15 @@ class GeneralizedMethodOfMoment(APIView):
                                 valid_subsectors.append(sub_sector_info)
                         
                         if valid_subsectors:
-                            weighted_sum = sum(sub["years"][year_str] * sub["total_organizations"] for sub in valid_subsectors)
-                            # Total number of organizations in these sub-sectors
-                            total_orgs = sum(sub["total_organizations"] for sub in valid_subsectors)
-                            
-                            if total_orgs > 0:
-                                sector_avg = weighted_sum / total_orgs
-                                sector_groups[sector_name]["years"][year_str] = sector_avg
+                            if len(valid_subsectors) > 1:
+                                sum_of_averages = sum(sub["years"][year_str] for sub in valid_subsectors)
+                                # Divide by total organizations in the sector
+                                if sector_info["total_organizations"] > 0:
+                                    sector_avg = sum_of_averages / sector_info["total_organizations"]
+                                    sector_groups[sector_name]["years"][year_str] = sector_avg
+                            else:
+                                # For sectors with only one sub-sector, use the sub-sector average directly
+                                sector_groups[sector_name]["years"][year_str] = valid_subsectors[0]["years"][year_str]
                 
                 results = []
                 for sector_name, sector_info in sector_groups.items():
