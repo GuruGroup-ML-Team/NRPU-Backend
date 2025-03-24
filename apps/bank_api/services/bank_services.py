@@ -2,10 +2,10 @@
 import os
 import pandas as pd
 from django.conf import settings
-from bank_api.constants import (
-    CSV_FILENAME, YEARS, EFFICIENCY_RATIOS, LIQUIDITY_RATIOS,
-    ASSET_QUALITY_RATIOS, CAPITAL_RATIOS, BENCHMARK_SCORING,
-    RATING_THRESHOLDS, FINANCIAL_FIELDS, INVERSE_RATIOS
+from apps.bank_api.constants import (
+    BANK_CSV_FILENAME, BANK_YEARS, BANK_EFFICIENCY_RATIOS, BANK_LIQUIDITY_RATIOS,
+    BANK_ASSET_QUALITY_RATIOS, BANK_CAPITAL_RATIOS, BANK_BENCHMARK_SCORING,
+    BANK_RATING_THRESHOLDS, BANK_FINANCIAL_FIELDS, BANK_INVERSE_RATIOS
 )
 
 
@@ -24,9 +24,9 @@ class BankDataService:
 
         # Define possible locations for the CSV file
         possible_paths = [
-            os.path.join(base_dir, CSV_FILENAME),  # Project root
-            os.path.join(base_dir, 'bank_api', CSV_FILENAME),
-            os.path.join(base_dir, 'data', CSV_FILENAME),
+            os.path.join(base_dir, BANK_CSV_FILENAME),  # Project root
+            os.path.join(base_dir, 'bank_api', BANK_CSV_FILENAME),
+            os.path.join(base_dir, 'data', BANK_CSV_FILENAME),
         ]
 
         # Return the first path that exists
@@ -35,7 +35,7 @@ class BankDataService:
                 return path
 
         # Default path if none exist
-        return os.path.join(base_dir, CSV_FILENAME)
+        return os.path.join(base_dir, BANK_CSV_FILENAME)
 
     @staticmethod
     def get_bank_data():
@@ -54,7 +54,7 @@ class BankDataService:
             df = pd.read_csv(csv_file_path)
 
             # Convert data to appropriate types (numerical values)
-            for year in YEARS:
+            for year in BANK_YEARS:
                 df[year] = pd.to_numeric(df[year].str.replace(',', ''), errors='coerce')
 
             # Initialize the nested dictionary structure
@@ -74,7 +74,7 @@ class BankDataService:
                     data["Banks"][org_name][item_name] = {}
 
                 # Add the yearly values
-                for year in YEARS:
+                for year in BANK_YEARS:
                     data["Banks"][org_name][item_name][year] = row[year]
 
             return data
@@ -198,7 +198,7 @@ class BankDataService:
         Returns:
             list: List of available years
         """
-        return YEARS.copy()
+        return BANK_YEARS.copy()
 
     @staticmethod
     def calculate_financial_ratios(bank_data, year="2023"):
@@ -213,10 +213,10 @@ class BankDataService:
             dict: A dictionary of calculated financial ratios
         """
         ratios = {
-            EFFICIENCY_RATIOS: {},
-            LIQUIDITY_RATIOS: {},
-            ASSET_QUALITY_RATIOS: {},
-            CAPITAL_RATIOS: {}
+            BANK_EFFICIENCY_RATIOS: {},
+            BANK_LIQUIDITY_RATIOS: {},
+            BANK_ASSET_QUALITY_RATIOS: {},
+            BANK_CAPITAL_RATIOS: {}
         }
 
         try:
@@ -232,138 +232,138 @@ class BankDataService:
 
             # Efficiency ratios
             # Spread Ratio
-            ratios[EFFICIENCY_RATIOS]["spread_ratio"] = calculate_ratio(
-                FINANCIAL_FIELDS["NET_INTEREST"],
-                FINANCIAL_FIELDS["INTEREST_EARNED"]
+            ratios[BANK_EFFICIENCY_RATIOS]["spread_ratio"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NET_INTEREST"],
+                BANK_FINANCIAL_FIELDS["INTEREST_EARNED"]
             )
 
             # Net Interest Margin
-            ratios[EFFICIENCY_RATIOS]["net_interest_margin"] = calculate_ratio(
-                FINANCIAL_FIELDS["NET_INTEREST"],
-                FINANCIAL_FIELDS["TOTAL_ASSETS"]
+            ratios[BANK_EFFICIENCY_RATIOS]["net_interest_margin"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NET_INTEREST"],
+                BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]
             )
 
             # Return on Equity (ROE)
-            ratios[EFFICIENCY_RATIOS]["return_on_equity"] = calculate_ratio(
-                FINANCIAL_FIELDS["NET_PROFIT"],
-                FINANCIAL_FIELDS["TOTAL_EQUITY"]
+            ratios[BANK_EFFICIENCY_RATIOS]["return_on_equity"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NET_PROFIT"],
+                BANK_FINANCIAL_FIELDS["TOTAL_EQUITY"]
             )
 
             # Return on Assets (ROA)
-            ratios[EFFICIENCY_RATIOS]["return_on_assets"] = calculate_ratio(
-                FINANCIAL_FIELDS["NET_PROFIT"],
-                FINANCIAL_FIELDS["TOTAL_ASSETS"]
+            ratios[BANK_EFFICIENCY_RATIOS]["return_on_assets"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NET_PROFIT"],
+                BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]
             )
 
             # Non-Interest Income Ratio
-            ratios[EFFICIENCY_RATIOS]["non_interest_income_ratio"] = calculate_ratio(
-                FINANCIAL_FIELDS["NON_INTEREST_INCOME"],
-                FINANCIAL_FIELDS["TOTAL_ASSETS"]
+            ratios[BANK_EFFICIENCY_RATIOS]["non_interest_income_ratio"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NON_INTEREST_INCOME"],
+                BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]
             )
 
             # Liquidity ratios
             # Cash to Total Assets
-            if (FINANCIAL_FIELDS["CASH"] in bank_data and year in bank_data[FINANCIAL_FIELDS["CASH"]] and
-                    FINANCIAL_FIELDS["BALANCES"] in bank_data and year in bank_data[FINANCIAL_FIELDS["BALANCES"]] and
-                    FINANCIAL_FIELDS["TOTAL_ASSETS"] in bank_data and year in bank_data[
-                        FINANCIAL_FIELDS["TOTAL_ASSETS"]] and
-                    bank_data[FINANCIAL_FIELDS["TOTAL_ASSETS"]][year] > 0):
-                cash = bank_data[FINANCIAL_FIELDS["CASH"]][year]
-                balances = bank_data[FINANCIAL_FIELDS["BALANCES"]][year]
-                total_assets = bank_data[FINANCIAL_FIELDS["TOTAL_ASSETS"]][year]
+            if (BANK_FINANCIAL_FIELDS["CASH"] in bank_data and year in bank_data[BANK_FINANCIAL_FIELDS["CASH"]] and
+                    BANK_FINANCIAL_FIELDS["BALANCES"] in bank_data and year in bank_data[BANK_FINANCIAL_FIELDS["BALANCES"]] and
+                    BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"] in bank_data and year in bank_data[
+                        BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]] and
+                    bank_data[BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]][year] > 0):
+                cash = bank_data[BANK_FINANCIAL_FIELDS["CASH"]][year]
+                balances = bank_data[BANK_FINANCIAL_FIELDS["BALANCES"]][year]
+                total_assets = bank_data[BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]][year]
                 cash_ratio = ((cash + balances) / total_assets) * 100
-                ratios[LIQUIDITY_RATIOS]["cash_to_total_assets"] = round(cash_ratio, 2)
+                ratios[BANK_LIQUIDITY_RATIOS]["cash_to_total_assets"] = round(cash_ratio, 2)
 
             # Investments to Total Assets
-            ratios[LIQUIDITY_RATIOS]["investments_to_total_assets"] = calculate_ratio(
-                FINANCIAL_FIELDS["INVESTMENTS"],
-                FINANCIAL_FIELDS["TOTAL_ASSETS"]
+            ratios[BANK_LIQUIDITY_RATIOS]["investments_to_total_assets"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["INVESTMENTS"],
+                BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]
             )
 
             # Advances to Total Assets
-            ratios[LIQUIDITY_RATIOS]["advances_to_total_assets"] = calculate_ratio(
-                FINANCIAL_FIELDS["NET_ADVANCES"],
-                FINANCIAL_FIELDS["TOTAL_ASSETS"]
+            ratios[BANK_LIQUIDITY_RATIOS]["advances_to_total_assets"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NET_ADVANCES"],
+                BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]
             )
 
             # Deposits to Total Assets
-            ratios[LIQUIDITY_RATIOS]["deposits_to_total_assets"] = calculate_ratio(
-                FINANCIAL_FIELDS["DEPOSITS"],
-                FINANCIAL_FIELDS["TOTAL_ASSETS"]
+            ratios[BANK_LIQUIDITY_RATIOS]["deposits_to_total_assets"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["DEPOSITS"],
+                BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]
             )
 
             # Total Liabilities to Total Assets
-            ratios[LIQUIDITY_RATIOS]["liabilities_to_total_assets"] = calculate_ratio(
-                FINANCIAL_FIELDS["TOTAL_LIABILITIES"],
-                FINANCIAL_FIELDS["TOTAL_ASSETS"]
+            ratios[BANK_LIQUIDITY_RATIOS]["liabilities_to_total_assets"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["TOTAL_LIABILITIES"],
+                BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]
             )
 
             # Advances to Deposits
-            ratios[LIQUIDITY_RATIOS]["advances_to_deposits"] = calculate_ratio(
-                FINANCIAL_FIELDS["NET_ADVANCES"],
-                FINANCIAL_FIELDS["DEPOSITS"]
+            ratios[BANK_LIQUIDITY_RATIOS]["advances_to_deposits"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NET_ADVANCES"],
+                BANK_FINANCIAL_FIELDS["DEPOSITS"]
             )
 
             # Gross Advances to Deposits
-            ratios[LIQUIDITY_RATIOS]["gross_advances_to_deposits"] = calculate_ratio(
-                FINANCIAL_FIELDS["GROSS_ADVANCES"],
-                FINANCIAL_FIELDS["DEPOSITS"]
+            ratios[BANK_LIQUIDITY_RATIOS]["gross_advances_to_deposits"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["GROSS_ADVANCES"],
+                BANK_FINANCIAL_FIELDS["DEPOSITS"]
             )
 
             # Gross Advances to Borrowing & Deposits
-            if (FINANCIAL_FIELDS["GROSS_ADVANCES"] in bank_data and year in bank_data[
-                FINANCIAL_FIELDS["GROSS_ADVANCES"]] and
-                    FINANCIAL_FIELDS["BORROWINGS"] in bank_data and year in bank_data[
-                        FINANCIAL_FIELDS["BORROWINGS"]] and
-                    FINANCIAL_FIELDS["DEPOSITS"] in bank_data and year in bank_data[FINANCIAL_FIELDS["DEPOSITS"]] and
-                    (bank_data[FINANCIAL_FIELDS["BORROWINGS"]][year] + bank_data[FINANCIAL_FIELDS["DEPOSITS"]][
+            if (BANK_FINANCIAL_FIELDS["GROSS_ADVANCES"] in bank_data and year in bank_data[
+                BANK_FINANCIAL_FIELDS["GROSS_ADVANCES"]] and
+                    BANK_FINANCIAL_FIELDS["BORROWINGS"] in bank_data and year in bank_data[
+                        BANK_FINANCIAL_FIELDS["BORROWINGS"]] and
+                    BANK_FINANCIAL_FIELDS["DEPOSITS"] in bank_data and year in bank_data[BANK_FINANCIAL_FIELDS["DEPOSITS"]] and
+                    (bank_data[BANK_FINANCIAL_FIELDS["BORROWINGS"]][year] + bank_data[BANK_FINANCIAL_FIELDS["DEPOSITS"]][
                         year]) > 0):
-                gross_advances = bank_data[FINANCIAL_FIELDS["GROSS_ADVANCES"]][year]
-                borrowings = bank_data[FINANCIAL_FIELDS["BORROWINGS"]][year]
-                deposits = bank_data[FINANCIAL_FIELDS["DEPOSITS"]][year]
+                gross_advances = bank_data[BANK_FINANCIAL_FIELDS["GROSS_ADVANCES"]][year]
+                borrowings = bank_data[BANK_FINANCIAL_FIELDS["BORROWINGS"]][year]
+                deposits = bank_data[BANK_FINANCIAL_FIELDS["DEPOSITS"]][year]
                 ratio_value = (gross_advances / (borrowings + deposits)) * 100
-                ratios[LIQUIDITY_RATIOS]["gross_advances_to_borrowing_deposits"] = round(ratio_value, 2)
+                ratios[BANK_LIQUIDITY_RATIOS]["gross_advances_to_borrowing_deposits"] = round(ratio_value, 2)
 
             # Asset quality ratios
             # NPL to Gross Advances
-            ratios[ASSET_QUALITY_RATIOS]["npl_to_gross_advances"] = calculate_ratio(
-                FINANCIAL_FIELDS["NPL"],
-                FINANCIAL_FIELDS["GROSS_ADVANCES"]
+            ratios[BANK_ASSET_QUALITY_RATIOS]["npl_to_gross_advances"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NPL"],
+                BANK_FINANCIAL_FIELDS["GROSS_ADVANCES"]
             )
 
             # Provisions against NPLs to Gross Advances
-            ratios[ASSET_QUALITY_RATIOS]["provisions_to_gross_advances"] = calculate_ratio(
-                FINANCIAL_FIELDS["PROVISIONS"],
-                FINANCIAL_FIELDS["GROSS_ADVANCES"]
+            ratios[BANK_ASSET_QUALITY_RATIOS]["provisions_to_gross_advances"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["PROVISIONS"],
+                BANK_FINANCIAL_FIELDS["GROSS_ADVANCES"]
             )
 
             # Provision Coverage
-            ratios[ASSET_QUALITY_RATIOS]["provision_coverage"] = calculate_ratio(
-                FINANCIAL_FIELDS["PROVISIONS"],
-                FINANCIAL_FIELDS["NPL"]
+            ratios[BANK_ASSET_QUALITY_RATIOS]["provision_coverage"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["PROVISIONS"],
+                BANK_FINANCIAL_FIELDS["NPL"]
             )
 
             # NPL to Equity
-            ratios[ASSET_QUALITY_RATIOS]["npl_to_equity"] = calculate_ratio(
-                FINANCIAL_FIELDS["NPL"],
-                FINANCIAL_FIELDS["TOTAL_EQUITY"]
+            ratios[BANK_ASSET_QUALITY_RATIOS]["npl_to_equity"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["NPL"],
+                BANK_FINANCIAL_FIELDS["TOTAL_EQUITY"]
             )
 
             # Capital ratios
             # Capital to Assets Ratio
-            ratios[CAPITAL_RATIOS]["capital_to_assets"] = calculate_ratio(
-                FINANCIAL_FIELDS["TOTAL_EQUITY"],
-                FINANCIAL_FIELDS["TOTAL_ASSETS"]
+            ratios[BANK_CAPITAL_RATIOS]["capital_to_assets"] = calculate_ratio(
+                BANK_FINANCIAL_FIELDS["TOTAL_EQUITY"],
+                BANK_FINANCIAL_FIELDS["TOTAL_ASSETS"]
             )
 
             # Deposits to Equity
             deposits_equity = calculate_ratio(
-                FINANCIAL_FIELDS["DEPOSITS"],
-                FINANCIAL_FIELDS["TOTAL_EQUITY"],
+                BANK_FINANCIAL_FIELDS["DEPOSITS"],
+                BANK_FINANCIAL_FIELDS["TOTAL_EQUITY"],
                 factor=1  # No percentage conversion for this ratio
             )
             if deposits_equity is not None:
-                ratios[CAPITAL_RATIOS]["deposits_to_equity"] = deposits_equity
+                ratios[BANK_CAPITAL_RATIOS]["deposits_to_equity"] = deposits_equity
 
         except Exception as e:
             print(f"Error calculating financial ratios: {e}")
@@ -431,10 +431,10 @@ class BankDataService:
 
         # Initialize the scores structure
         ratio_scores = {
-            EFFICIENCY_RATIOS: {},
-            LIQUIDITY_RATIOS: {},
-            ASSET_QUALITY_RATIOS: {},
-            CAPITAL_RATIOS: {}
+            BANK_EFFICIENCY_RATIOS: {},
+            BANK_LIQUIDITY_RATIOS: {},
+            BANK_ASSET_QUALITY_RATIOS: {},
+            BANK_CAPITAL_RATIOS: {}
         }
 
         # For each category and ratio, compare with industry and assign score
@@ -451,7 +451,7 @@ class BankDataService:
 
                 # Calculate bank-to-industry ratio
                 # For ratios where lower is better, we invert the comparison
-                if ratio_name in INVERSE_RATIOS:
+                if ratio_name in BANK_INVERSE_RATIOS:
                     # For these ratios, lower is better, so we invert
                     comparison_ratio = industry_value / ratio_value if ratio_value > 0 else 0
                 else:
@@ -460,7 +460,7 @@ class BankDataService:
 
                 # Assign score based on comparison ratio
                 score = 1  # Default to worst score
-                for level, criteria in BENCHMARK_SCORING.items():
+                for level, criteria in BANK_BENCHMARK_SCORING.items():
                     if comparison_ratio >= criteria["threshold"]:
                         score = criteria["score"]
                         break
@@ -485,7 +485,7 @@ class BankDataService:
 
         # Determine rating based on percentage score
         rating = "Not Rated"
-        for threshold, rating_value in sorted(RATING_THRESHOLDS.items(), reverse=True):
+        for threshold, rating_value in sorted(BANK_RATING_THRESHOLDS.items(), reverse=True):
             if percentage_score >= threshold:
                 rating = rating_value
                 break
