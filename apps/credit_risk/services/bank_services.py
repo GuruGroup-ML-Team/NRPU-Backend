@@ -2,7 +2,7 @@
 import os
 import pandas as pd
 from django.conf import settings
-from apps.bank_api.constants import (
+from apps.credit_risk.constants import (
     BANK_CSV_FILENAME, BANK_YEARS, BANK_EFFICIENCY_RATIOS, BANK_LIQUIDITY_RATIOS,
     BANK_ASSET_QUALITY_RATIOS, BANK_CAPITAL_RATIOS, BANK_BENCHMARK_SCORING,
     BANK_RATING_THRESHOLDS, BANK_FINANCIAL_FIELDS, BANK_INVERSE_RATIOS

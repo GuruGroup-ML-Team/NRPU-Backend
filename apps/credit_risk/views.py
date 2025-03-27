@@ -8,10 +8,6 @@ from .serializers import BankComparisonSerializer, CompanyComparisonSerializer, 
 import pandas as pd
 
 class CreditRiskAPIView(APIView):
-    """
-    Consolidated API endpoint for all financial operations (banks and companies).
-    Similar structure to AltmanZScoreView where endpoints are determined by query parameters.
-    """
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -22,9 +18,16 @@ class CreditRiskAPIView(APIView):
         """
         Handle all GET requests based on query parameters.
         """
+
+        entity_type = 'company'  # Default to company
+        if request.query_params.get('entity_type') in ['bank', 'banks', 'bank_name']:
+            entity_type = 'bank'
+
         # Extract common parameters
         entity_name = request.query_params.get('entity_name') or request.query_params.get('bank_name') or request.query_params.get('company_name')
-        entity_type = 'bank' if 'bank_name' in request.query_params or 'banks' in request.query_params else 'company'
+        # Extract common parameters
+        # entity_name = request.query_params.get('entity_name') or request.query_params.get('bank_name') or request.query_params.get('company_name')
+        # entity_type = 'bank' if 'bank_name' in request.query_params or 'banks' in request.query_params else 'company'
         sector = request.query_params.get('sector')
         sub_sector = request.query_params.get('sub_sector')
         indicator = request.query_params.get('indicator')

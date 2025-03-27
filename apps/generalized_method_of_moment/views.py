@@ -57,17 +57,17 @@ class GeneralizedMethodOfMoment(APIView):
                 
             try:
                 gmm_score = (
-                    3.876022 +
-                    0.1441676 * components['AZ_L1_log'] +
-                    0.0486955 * components['PS'] -
-                    0.1198662 * components['log_GDP'] -
-                    0.0079648 * components['BM'] +
-                    0.035262 * components['log_CD'] -
-                    0.09469 * components['log_OFA'] -
-                    0.0111375 * components['log_IMP'] +
-                    0.0011545 * components['log_TE'] -
-                    0.0928376 * components['log_FS'] +
-                    0.091969 * components['log_GO2']
+                    4.437 +
+                    0.103 * components['AZ_L1_log'] +
+                    0.038 * components['PS'] -
+                    0.185 * components['log_GDP'] -
+                    0.008 * components['BM'] +
+                    0.064 * components['log_CD'] -
+                    0.048 * components['log_OFA'] -
+                    0.0111 * components['log_IMP'] +
+                    0.031 * components['log_TE'] -
+                    0.194 * components['log_FS'] +
+                    0.085 * components['log_GO2']
                 )
                 
                 gmm_scores[year] = gmm_score
