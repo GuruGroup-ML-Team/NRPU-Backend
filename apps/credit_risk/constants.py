@@ -13,12 +13,8 @@ BANK_ASSET_QUALITY_RATIOS = "asset_quality_ratios"
 BANK_CAPITAL_RATIOS = "capital_ratios"
 
 # Company Financial Ratio Categories
-COMPANY_PROFITABILITY_RATIOS = "company_profitability_ratios"
-COMPANY_LIQUIDITY_RATIOS = "company_liquidity_ratios"
-COMPANY_EFFICIENCY_RATIOS = "company_efficiency_ratios"
-COMPANY_SOLVENCY_RATIOS = "company_solvency_ratios"
-COMPANY_CASH_FLOW_RATIOS = "company_cash_flow_ratios"
-COMPANY_VALUATION_RATIOS = "company_valuation_ratios"
+# Categories for company financial ratios
+
 
 # Bank Financial Data Field Mappings
 BANK_FINANCIAL_FIELDS = {
@@ -47,7 +43,7 @@ BANK_FINANCIAL_FIELDS = {
     "NET_PROFIT": "10. Profit/(loss) after taxation"
 }
 
-# Company Financial Data Field Mappings
+# Complete updated mapping from indicators to their paths in the CSV data
 COMPANY_FINANCIAL_FIELDS = {
     # Balance Sheet Fields - Assets
     "CAPITAL_WORK_IN_PROGRESS": "A. Non-Current Assets (A1+A3+A4+A5+A6) - 1. Capital work in progress",
@@ -110,8 +106,10 @@ COMPANY_FINANCIAL_FIELDS = {
     "TOTAL_EQUITY": "C. Shareholders' Equity (C1+C2+C3)",
     "TOTAL_NON_CURRENT_LIABILITIES": "D. Non-Current Liabilities (D1+D2+D3+D4+D5)",
     "TOTAL_CURRENT_LIABILITIES": "E. Current Liabilities (E1+E2+E3+E4)",
-    "TOTAL_FIXED_LIABILITIES": "D. Non-Current Liabilities (D1+D2+D3+D4+D5) - 5. Total fixed liabilities (D1+D3)"
+    "TOTAL_FIXED_LIABILITIES": "H. Miscellaneous - 5. Total fixed liabilities (D1+D3)"
 }
+# Reverse mapping for lookup
+REVERSE_COMPANY_FINANCIAL_FIELDS = {v: k for k, v in COMPANY_FINANCIAL_FIELDS.items()}
 
 # Bank Ratio Scoring Thresholds
 BANK_BENCHMARK_SCORING = {
@@ -140,14 +138,6 @@ COMPANY_RATIO_CATEGORIES = {
 }
 
 # Default weights for different company ratio categories
-COMPANY_DEFAULT_WEIGHTS = {
-    "profitability": 0.50,
-    "liquidity": 0.25,
-    "activity": 0.15,  # renamed from efficiency to match your data
-    "solvency": 0.10
-}
-
-# Company Rating Thresholds
 COMPANY_RATING_THRESHOLDS = {
     80: "Strong Buy",
     70: "Buy",
@@ -156,6 +146,14 @@ COMPANY_RATING_THRESHOLDS = {
     0: "Strong Sell"
 }
 
+
+# Categories for company financial ratios
+COMPANY_PROFITABILITY_RATIOS = "company_profitability_ratios"
+COMPANY_LIQUIDITY_RATIOS = "company_liquidity_ratios"
+COMPANY_EFFICIENCY_RATIOS = "company_efficiency_ratios"
+COMPANY_SOLVENCY_RATIOS = "company_solvency_ratios"
+COMPANY_CASH_FLOW_RATIOS = "company_cash_flow_ratios"
+COMPANY_VALUATION_RATIOS = "company_valuation_ratios"
 # Company rating interpretations (used for the final rating output)
 COMPANY_RATING_INTERPRETATIONS = {
     "Strong Buy": "Low risk investment with good fundamentals",
@@ -177,13 +175,13 @@ BANK_INVERSE_RATIOS = [
 ]
 
 # Company Ratios where lower values are better
+
 COMPANY_INVERSE_RATIOS = [
     "debt_to_equity",
     "debt_ratio",
     "financial_leverage",
-    "interest_cover_ratio",
-    "asset_turnover",
-    "inventory_turnover",
-    "debtor_turnover_days",
-    "creditor_turnover_days"
+    "interest_coverage",
+    "inventory_days",
+    "receivables_days",
+    "payables_days"
 ]

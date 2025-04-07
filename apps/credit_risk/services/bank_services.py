@@ -171,6 +171,30 @@ class BankDataService:
             return []
 
     @staticmethod
+    def validate_sector_subsector(sector, sub_sector):
+        """
+        Validates that the provided sub-sector belongs to the specified sector
+
+        Args:
+            sector (str): Sector name
+            sub_sector (str): Sub-sector name
+
+        Returns:
+            bool: True if valid combination, False otherwise
+        """
+        try:
+            csv_file_path = BankDataService.get_csv_path()
+            df = pd.read_csv(csv_file_path)
+
+            # Check if the sub-sector exists within the specified sector
+            valid = df[(df['Sector'] == sector) & (df['Sub Sector'] == sub_sector)].shape[0] > 0
+            return valid
+
+        except Exception as e:
+            print(f"Error validating sector-subsector combination: {e}")
+            return False
+
+    @staticmethod
     def get_metrics():
         """
         Returns a list of available metrics (item names) from the CSV file

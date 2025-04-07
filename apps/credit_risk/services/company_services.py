@@ -1,16 +1,13 @@
 import os
 import pandas as pd
 from django.conf import settings
-from apps.credit_risk.constants import (
-    COMPANY_CSV_FILENAME, COMPANY_YEARS, COMPANY_PROFITABILITY_RATIOS, COMPANY_LIQUIDITY_RATIOS,
-    COMPANY_EFFICIENCY_RATIOS, COMPANY_SOLVENCY_RATIOS, COMPANY_CASH_FLOW_RATIOS,
-    COMPANY_VALUATION_RATIOS, COMPANY_RATING_THRESHOLDS, COMPANY_FINANCIAL_FIELDS,
-    COMPANY_INVERSE_RATIOS, COMPANY_RATIO_CATEGORIES
-)
+
+
 
 
 class CompanyDataService:
     """Service for handling company financial data operations"""
+    company_data = None
 
     @staticmethod
     def get_csv_path():
@@ -45,6 +42,10 @@ class CompanyDataService:
         Returns:
             dict: Processed company data in nested dictionary format
         """
+        # Return cached data if available
+        if CompanyDataService.company_data is not None:
+            return CompanyDataService.company_data
+
         try:
             # Get the path to the CSV file
             csv_file_path = CompanyDataService.get_csv_path()
@@ -52,12 +53,14 @@ class CompanyDataService:
 
             df = pd.read_csv(csv_file_path)
 
+            # Convert year columns to numeric
             for year in COMPANY_YEARS:
                 if year in df.columns:
                     if df[year].dtype == 'object':
                         df[year] = pd.to_numeric(df[year].str.replace(',', ''), errors='coerce')
                     else:
                         df[year] = pd.to_numeric(df[year], errors='coerce')
+
             # Initialize the nested dictionary structure
             data = {"Companies": {}}
 
@@ -69,6 +72,10 @@ class CompanyDataService:
                 sub_indicator = row.get('Sub Indicator', '')
                 sub_sub_indicator = row.get('Sub-Sub Indicator', '')
 
+                # Skip empty rows or rows with missing org name
+                if pd.isna(org_name) or not org_name:
+                    continue
+
                 # Create the hierarchical structure
                 if org_name not in data["Companies"]:
                     data["Companies"][org_name] = {
@@ -77,12 +84,16 @@ class CompanyDataService:
                         "Indicators": {}
                     }
 
+                    # Mark as industry average if detected in name
+                    if "industry average" in org_name.lower():
+                        data["Companies"][org_name]["is_industry_average"] = True
+
                 # Create the indicator path
                 indicator_key = indicator
                 if sub_indicator and not pd.isna(sub_indicator):
                     indicator_key = f"{indicator} - {sub_indicator}"
                 if sub_sub_indicator and not pd.isna(sub_sub_indicator):
-                    indicator_key = f"{indicator} - {sub_indicator} - {sub_sub_indicator}"
+                    indicator_key = f"{indicator_key} - {sub_sub_indicator}"
 
                 # Add the indicator data
                 if indicator_key not in data["Companies"][org_name]["Indicators"]:
@@ -93,12 +104,89 @@ class CompanyDataService:
                     if year in df.columns and not pd.isna(row.get(year)):
                         data["Companies"][org_name]["Indicators"][indicator_key][year] = row[year]
 
+            # If no industry average data found, create synthetic ones
+            industry_found = False
+            for company in data["Companies"]:
+                if "industry average" in company.lower():
+                    industry_found = True
+                    break
+
+            if not industry_found:
+                print("No industry average data found. Creating synthetic industry averages...")
+                data = CompanyDataService._create_synthetic_industry_averages(data)
+
+            # Cache the data
+            CompanyDataService.company_data = data
             return data
 
         except Exception as e:
             print(f"Error loading company CSV data: {e}")
             # Return empty data structure if file can't be loaded
             return {"Companies": {}}
+
+    @staticmethod
+    def _create_synthetic_industry_averages(data):
+        """
+        Create synthetic industry average data if none exists
+
+        Args:
+            data (dict): The company data dictionary
+
+        Returns:
+            dict: Updated data with synthetic industry averages
+        """
+        # Group companies by sector
+        sectors = {}
+        for company_name, company_info in data["Companies"].items():
+            sector = company_info.get("Sector")
+            if sector not in sectors:
+                sectors[sector] = []
+            sectors[sector].append(company_name)
+
+        # Create an industry average for each sector
+        for sector, companies in sectors.items():
+            if not companies:
+                continue
+
+            avg_name = f"Industry Average - {sector}"
+            data["Companies"][avg_name] = {
+                "Sector": sector,
+                "Sub-Sector": "",
+                "Indicators": {},
+                "is_industry_average": True
+            }
+
+            # Collect indicator data from all companies in this sector
+            all_indicators = set()
+            for company in companies:
+                company_data = data["Companies"][company]
+                all_indicators.update(company_data.get("Indicators", {}).keys())
+
+            # Calculate average values for each indicator and year
+            for indicator in all_indicators:
+                data["Companies"][avg_name]["Indicators"][indicator] = {}
+
+                for year in COMPANY_YEARS:
+                    values = []
+                    for company in companies:
+                        company_indicators = data["Companies"][company].get("Indicators", {})
+                        if indicator in company_indicators and year in company_indicators[indicator]:
+                            values.append(company_indicators[indicator][year])
+
+                    if values:
+                        data["Companies"][avg_name]["Indicators"][indicator][year] = sum(values) / len(values)
+
+        return data
+
+    @staticmethod
+    def set_company_data(data):
+        """
+        Set the company data in the cache
+
+        Args:
+            data (dict): The company data to set
+        """
+        CompanyDataService.company_data = data
 
     @staticmethod
     def get_listed_companies():
@@ -252,6 +340,98 @@ class CompanyDataService:
             return COMPANY_YEARS.copy()
 
     @staticmethod
+    def get_indicator_value(company_data, indicator_name, year):
+        """
+        Get the value of an indicator for a specific company and year,
+        with enhanced lookups to handle complex hierarchical data
+
+        Args:
+            company_data (dict): The company data
+            indicator_name (str): The indicator constant name
+            year (str): The year to get data for
+
+        Returns:
+            float or None: The indicator value or None if not found
+        """
+        indicators = company_data.get("Indicators", {})
+
+        # First, check if we have pre-calculated KPI values (they take precedence)
+        # These are in the "I. Key Performance Indicators" section
+        for category_name, category_prefix in COMPANY_RATIO_CATEGORIES.items():
+            for indicator_path in indicators.keys():
+                if indicator_path.startswith(category_prefix):
+                    # For profitability ratios
+                    if category_name == "PROFITABILITY" and indicator_name == "NET_PROFIT_MARGIN":
+                        if "P1. Net Profit  margin" in indicator_path and year in indicators[indicator_path]:
+                            return indicators[indicator_path][year]
+                    elif category_name == "PROFITABILITY" and indicator_name == "RETURN_ON_ASSETS":
+                        if "P3. Return on Assets" in indicator_path and year in indicators[indicator_path]:
+                            return indicators[indicator_path][year]
+                    elif category_name == "PROFITABILITY" and indicator_name == "RETURN_ON_EQUITY":
+                        if "P5. Return on equity" in indicator_path and year in indicators[indicator_path]:
+                            return indicators[indicator_path][year]
+                    elif category_name == "LIQUIDITY" and indicator_name == "CURRENT_RATIO":
+                        if "L1. Current ratio" in indicator_path and year in indicators[indicator_path]:
+                            return indicators[indicator_path][year]
+                    # Add more mappings for other pre-calculated ratios
+
+        # Try the mapped path from constants
+        field_path = COMPANY_FINANCIAL_FIELDS.get(indicator_name)
+        if field_path and field_path in indicators and year in indicators[field_path]:
+            return indicators[field_path][year]
+
+        # Try with direct field name
+        if indicator_name in indicators and year in indicators[indicator_name]:
+            return indicators[indicator_name][year]
+
+        # Try case-insensitive match and substring match
+        indicator_lower = indicator_name.lower()
+        for path, values in indicators.items():
+            if (indicator_lower in path.lower() or
+                indicator_name.replace("_", " ").lower() in path.lower()) and year in values:
+                return values[year]
+
+        # For specific fields, try alternative lookup methods
+        if indicator_name == "TOTAL_CURRENT_ASSETS":
+            b_prefix = "B. Current Assets (B1+B2+B3+B4+B5+B6)"
+            if b_prefix in indicators and year in indicators[b_prefix]:
+                return indicators[b_prefix][year]
+
+        elif indicator_name == "TOTAL_CURRENT_LIABILITIES":
+            e_prefix = "E. Current Liabilities (E1+E2+E3+E4)"
+            if e_prefix in indicators and year in indicators[e_prefix]:
+                return indicators[e_prefix][year]
+
+        elif indicator_name == "SALES":
+            sales_path = "F. Operations: - 1. Sales"
+            if sales_path in indicators and year in indicators[sales_path]:
+                return indicators[sales_path][year]
+
+        elif indicator_name == "EBIT":
+            ebit_path = "F. Operations: - 6. EBIT (F3-F4+F5)"
+            if ebit_path in indicators and year in indicators[ebit_path]:
+                return indicators[ebit_path][year]
+
+        elif indicator_name == "NET_PROFIT":
+            profit_path = "F. Operations: - 10. Profit / (loss) after tax (F8-F9)"
+            if profit_path in indicators and year in indicators[profit_path]:
+                return indicators[profit_path][year]
+
+        # Try looking for direct financial field values
+        for path in indicators.keys():
+            if indicator_name.lower().replace("_", " ") in path.lower() and year in indicators[path]:
+                return indicators[path][year]
+
+        # As a last resort, look in the pre-calculated KPI values for key ratios
+        # This helps when we can use pre-calculated values from the CSV
+        if indicator_name == "CURRENT_RATIO":
+            for path in indicators.keys():
+                if "current ratio" in path.lower() and year in indicators[path]:
+                    return indicators[path][year]
+
+        return None
+
+    @staticmethod
     def calculate_company_financial_ratios(company_data, year="2022"):
         """
         Calculate key financial ratios for a company based on its data
@@ -302,11 +482,7 @@ class CompanyDataService:
             try:
                 # Helper function to safely get a value from the indicators
                 def get_value(field_key):
-                    if field_key in COMPANY_FINANCIAL_FIELDS:
-                        field_path = COMPANY_FINANCIAL_FIELDS[field_key]
-                        if field_path in indicators and year in indicators[field_path]:
-                            return indicators[field_path][year]
-                    return None
+                    return CompanyDataService.get_indicator_value(company_data, field_key, year)
 
                 # Helper function to safely calculate a ratio
                 def calculate_ratio(numerator_key, denominator_key, factor=100):
@@ -450,6 +626,8 @@ class CompanyDataService:
 
             except Exception as e:
                 print(f"Error calculating company financial ratios: {e}")
+                import traceback
+                traceback.print_exc()
 
         return ratios
 
@@ -472,30 +650,21 @@ class CompanyDataService:
         if years is None:
             years = CompanyDataService.get_company_years()
 
-        indicators = company_data.get("Indicators", {})
         trend_data = {}
 
         for year in years:
             try:
-                if (numerator_key in COMPANY_FINANCIAL_FIELDS and
-                        denominator_key in COMPANY_FINANCIAL_FIELDS):
+                # Get values using the enhanced get_indicator_value method
+                numerator = CompanyDataService.get_indicator_value(company_data, numerator_key, year)
+                denominator = CompanyDataService.get_indicator_value(company_data, denominator_key, year)
 
-                    num_field = COMPANY_FINANCIAL_FIELDS[numerator_key]
-                    denom_field = COMPANY_FINANCIAL_FIELDS[denominator_key]
-
-                    if (num_field in indicators and year in indicators[num_field] and
-                            denom_field in indicators and year in indicators[denom_field] and
-                            indicators[denom_field][year] != 0):
-
-                        numerator = indicators[num_field][year]
-                        denominator = indicators[denom_field][year]
-                        ratio = (numerator / denominator) * factor
-                        trend_data[year] = round(ratio, 2)
-                    else:
-                        trend_data[year] = None
+                if numerator is not None and denominator is not None and denominator != 0:
+                    ratio = (numerator / denominator) * factor
+                    trend_data[year] = round(ratio, 2)
                 else:
                     trend_data[year] = None
-            except (KeyError, TypeError, ZeroDivisionError):
+            except (KeyError, TypeError, ZeroDivisionError) as e:
+                print(f"Error calculating trend for {ratio_type} in {year}: {e}")
                 trend_data[year] = None
 
         return trend_data
@@ -542,6 +711,11 @@ class CompanyDataService:
                 if company_name.lower().find("industry average") >= 0:
                     industry_data = company_info
                     break
+
+        # If still no industry data found, create a synthetic one
+        if not industry_data:
+            print(f"No industry average found for {company_data.get('Sector')}. Creating synthetic industry average...")
+            industry_data = CompanyDataService._create_synthetic_industry_average_for_company(data, company_data)
 
         # Calculate industry ratios if we found industry data
         industry_ratios = {}
@@ -637,11 +811,73 @@ class CompanyDataService:
             "weighted_score": round(weighted_score, 2),
             "percentage_score": round(percentage_score, 2),
             "rating": rating,
+            "interpretation": COMPANY_RATING_INTERPRETATIONS.get(rating, ""),
             "comparison_data": {
                 "company_ratios": ratios,
                 "industry_ratios": industry_ratios if industry_ratios else None
             }
         }
+
+    @staticmethod
+    def _create_synthetic_industry_average_for_company(data, company_data):
+        """
+        Create a synthetic industry average specifically for a single company
+
+        Args:
+            data (dict): The full company data dictionary
+            company_data (dict): The specific company's data
+
+        Returns:
+            dict: Synthetic industry average data
+        """
+        sector = company_data.get("Sector")
+        sub_sector = company_data.get("Sub-Sector")
+
+        # Initialize industry data
+        industry_data = {
+            "Sector": sector,
+            "Sub-Sector": sub_sector,
+            "Indicators": {},
+            "is_industry_average": True
+        }
+
+        # Find companies in the same sector/sub-sector
+        sector_companies = []
+        for company_name, info in data["Companies"].items():
+            if info.get("Sector") == sector or info.get("Sub-Sector") == sub_sector:
+                if company_name not in sector_companies:
+                    sector_companies.append(info)
+
+        # If no other companies found, use all companies
+        if len(sector_companies) <= 1:
+            sector_companies = list(data["Companies"].values())
+
+        # Get all indicator paths from the company data
+        all_indicators = set()
+        for company in sector_companies:
+            if "Indicators" in company:
+                all_indicators.update(company["Indicators"].keys())
+
+        # Calculate average for each indicator
+        for indicator in all_indicators:
+            # Collect values by year
+            values_by_year = {}
+            for company in sector_companies:
+                company_indicators = company.get("Indicators", {})
+                if indicator in company_indicators:
+                    for year, value in company_indicators[indicator].items():
+                        if year not in values_by_year:
+                            values_by_year[year] = []
+                        if value is not None:
+                            values_by_year[year].append(value)
+
+            # Calculate averages
+            industry_data["Indicators"][indicator] = {}
+            for year, values in values_by_year.items():
+                if values:
+                    industry_data["Indicators"][indicator][year] = sum(values) / len(values)
+
+        return industry_data
 
     @staticmethod
     def get_company_comparison_data(companies, indicators, year="2022"):
@@ -672,12 +908,12 @@ class CompanyDataService:
             }
 
             for indicator in indicators:
-                if indicator in company_indicators and year in company_indicators[indicator]:
-                    result[company]["indicators"][indicator] = company_indicators[indicator][year]
-                else:
-                    result[company]["indicators"][indicator] = None
+                # Use the enhanced indicator value getter
+                value = CompanyDataService.get_indicator_value(company_data, indicator, year)
+                result[company]["indicators"][indicator] = value
 
         # Try to add industry average if available
+        industry_added = False
         for company_name, company_info in data["Companies"].items():
             if "industry average" in company_name.lower():
                 industry_indicators = company_info.get("Indicators", {})
@@ -688,11 +924,29 @@ class CompanyDataService:
                 }
 
                 for indicator in indicators:
-                    if indicator in industry_indicators and year in industry_indicators[indicator]:
-                        result["Industry Average"]["indicators"][indicator] = industry_indicators[indicator][year]
-                    else:
-                        result["Industry Average"]["indicators"][indicator] = None
+                    value = CompanyDataService.get_indicator_value(company_info, indicator, year)
+                    result["Industry Average"]["indicators"][indicator] = value
 
+                industry_added = True
                 break  # Just use the first industry average we find
+
+        # If no industry average found, create a synthetic one
+        if not industry_added and companies:
+            # Get the first company's sector to create a relevant industry average
+            first_company = companies[0]
+            if first_company in data["Companies"]:
+                first_company_data = data["Companies"][first_company]
+                industry_data = CompanyDataService._create_synthetic_industry_average_for_company(data,
+                                                                                                  first_company_data)
+
+                result["Industry Average (Synthetic)"] = {
+                    "sector": industry_data.get("Sector", ""),
+                    "sub_sector": industry_data.get("Sub-Sector", ""),
+                    "indicators": {}
+                }
+
+                for indicator in indicators:
+                    value = CompanyDataService.get_indicator_value(industry_data, indicator, year)
+                    result["Industry Average (Synthetic)"]["indicators"][indicator] = value
 
         return result
