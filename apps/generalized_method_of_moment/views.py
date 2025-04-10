@@ -9,8 +9,8 @@ class GeneralizedMethodOfMoment(APIView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         try:
-            self.df = pd.read_excel("Data/gmm_signed.xlsx")
-            self.sector_avg_df = pd.read_excel("Data/gmm_sector_averages_signed.xlsx")
+            self.df = pd.read_excel("Data/gmm.xlsx")
+            self.sector_avg_df = pd.read_excel("Data/gmm_sector_averages.xlsx")
             print("GMM dataset and sector averages loaded successfully.")
         except Exception as e:
             print(f"Error loading datasets: {str(e)}")
@@ -20,7 +20,7 @@ class GeneralizedMethodOfMoment(APIView):
     def calculate_gmm_score(self, df_filtered):
         print("Inside calculate_gmm_score method")
 
-        
+        # Define the mapping of column names to their keys
         gmm_components = {
             'Political Stability': ('Political Stability', 'PS'),
             'Log_GDP per capita (current US$)': ('Log_GDP per capita (current US$)', 'log_GDP'),
@@ -35,20 +35,20 @@ class GeneralizedMethodOfMoment(APIView):
         }
 
         gmm_scores = {}
-
+        # Iterate through each row in the filtered DataFrame
         for _, row in df_filtered.iterrows():
             year = row['Year']
             components = {key: None for _, key in gmm_components.values()}
-
+            # Extract relevant components for calculation
             for col_name, (category, key) in gmm_components.items():
                 if category in df_filtered.columns:
                     components[key] = row[category]
 
             print(f"Components for year {year}: {components}")
 
-            
+            # Required components for GMM Score Calculation
             required_components = ['PS', 'log_GDP', 'BM', 'log_CD', 'log_OFA', 'log_IMP', 'log_TE', 'log_FS', 'log_GO2', 'AZ_L1_log']
-            
+            # Check if all required components are available
             if not all(components.get(comp) is not None for comp in required_components):
                 missing = [comp for comp in required_components if components.get(comp) is None]
                 print(f"Missing components for year {year}: {missing}")
@@ -56,6 +56,7 @@ class GeneralizedMethodOfMoment(APIView):
                 continue
                 
             try:
+                # Compute the GMM score using the formula
                 gmm_score = (
                     4.437 +
                     0.103 * components['AZ_L1_log'] +
@@ -97,7 +98,7 @@ class GeneralizedMethodOfMoment(APIView):
             sub_sector = request.query_params.get('sub_sector', None)
             org_name = request.query_params.get('org_name', None)
             year = request.query_params.get('year', None)
-
+            # Check if 'All' is requested for organization name
             if org_name and org_name.lower() == "all":
                 try:
                     # Get data from gmm_sector_averages.xlsx where Org Name contains "Average"
@@ -112,7 +113,7 @@ class GeneralizedMethodOfMoment(APIView):
                     if average_data.empty:
                         return Response({"message": "No average data found matching the specified criteria."}, 
                                         status=status.HTTP_404_NOT_FOUND)
-                    
+                    # If a specific year is requested, filter data accordingly
                     if year and year.lower() != "all":
                         year_data = average_data[average_data['Year'] == int(year)]
                         
@@ -151,119 +152,6 @@ class GeneralizedMethodOfMoment(APIView):
                     print(f"Error processing average data: {str(e)}")
                     return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            # if sector and sector.lower() == "all":
-            #     # Use the sector_avg_df directly
-            #     filtered_df = self.sector_avg_df.copy()
-                
-            #     # We need all data, not just "Average" rows, to calculate proper sector-wide averages
-            #     all_data = filtered_df.copy()
-                
-            #     # Filter by year if specified
-            #     if year and year.lower() != "all":
-            #         all_data = all_data[all_data['Year'].astype(str).str.contains(str(year))]
-                
-            #     # Group data by sector
-            #     sector_groups = {}
-                
-            #     # First group all data by sector, sub-sector and year
-            #     for sector_name, sector_data in all_data.groupby('Sector'):
-            #         # Initialize sector structure if not exists
-            #         if sector_name not in sector_groups:
-            #             sector_groups[sector_name] = {
-            #                 "sector": sector_name,
-            #                 "sub_sectors": {},
-            #                 "years": {}
-            #             }
-                    
-            #         # Process each sub-sector within this sector
-            #         for sub_sector_name, sub_sector_data in sector_data.groupby('Sub-Sector'):
-            #             if sub_sector_name not in sector_groups[sector_name]["sub_sectors"]:
-            #                 sector_groups[sector_name]["sub_sectors"][sub_sector_name] = {
-            #                     "name": sub_sector_name,
-            #                     "years": {}
-            #                 }
-                        
-            #             # Calculate year-wise averages for each sub-sector
-            #             for year_val, year_data in sub_sector_data.groupby('Year'):
-            #                 # Skip rows with "Average" in org name - we'll calculate our own averages
-            #                 non_average_data = year_data[~year_data['Org Name'].str.contains('Average', case=False, na=False)]
-                            
-            #                 if not non_average_data.empty:
-            #                     # Calculate average GMM Score for this sub-sector and year
-            #                     scores = non_average_data['GMM Score'].dropna()
-            #                     if not scores.empty:
-            #                         avg_score = scores.mean()
-            #                         sector_groups[sector_name]["sub_sectors"][sub_sector_name]["years"][str(year_val)] = avg_score
-                
-            #     # Now calculate overall sector averages by combining sub-sector data
-            #     for sector_name, sector_info in sector_groups.items():
-            #         # For each year, combine all sub-sector averages
-            #         all_years = set()
-            #         for sub_sector_info in sector_info["sub_sectors"].values():
-            #             all_years.update(sub_sector_info["years"].keys())
-                    
-            #         # Calculate sector-wide average for each year
-            #         for year_str in all_years:
-            #             # Collect all sub-sector scores for this year
-            #             sub_sector_scores = []
-            #             total_orgs = 0
-                        
-            #             for sub_sector_name, sub_sector_info in sector_info["sub_sectors"].items():
-            #                 if year_str in sub_sector_info["years"]:
-            #                     # Get the sub-sector's score for this year
-            #                     sub_score = sub_sector_info["years"][year_str]
-                                
-            #                     # Count organizations in this sub-sector for this year
-            #                     year_int = int(year_str)
-            #                     orgs_in_subsector = len(all_data[
-            #                         (all_data['Sector'] == sector_name) & 
-            #                         (all_data['Sub-Sector'] == sub_sector_name) & 
-            #                         (all_data['Year'] == year_int) &
-            #                         (~all_data['Org Name'].str.contains('Average', case=False, na=False))
-            #                     ])
-                                
-            #                     if not pd.isna(sub_score):
-            #                         sub_sector_scores.append(sub_score * orgs_in_subsector)
-            #                         total_orgs += orgs_in_subsector
-                        
-            #             # Calculate weighted average across all sub-sectors
-            #             if total_orgs > 0 and sub_sector_scores:
-            #                 sector_avg = sum(sub_sector_scores) / total_orgs
-            #                 sector_groups[sector_name]["years"][year_str] = sector_avg
-                
-            #     # Convert the sector groups to a list of results
-            #     results = []
-            #     for sector_name, sector_info in sector_groups.items():
-            #         # Create a sector entry with overall averages
-            #         sector_entry = {
-            #             "sector": sector_name,
-            #             "org_name": "Sector Average",
-            #             "years": sector_info["years"]
-            #         }
-                    
-            #         # Add sub-sector details
-            #         sub_sectors = []
-            #         for sub_name, sub_info in sector_info["sub_sectors"].items():
-            #             sub_sectors.append({
-            #                 "sub_sector": sub_name,
-            #                 "years": sub_info["years"]
-            #             })
-                    
-            #         sector_entry["sub_sectors"] = sub_sectors
-            #         results.append(sector_entry)
-                
-            #     # Handle NaN values before returning
-            #     results = self.replace_nan(results)
-                
-            #     return Response(
-            #         {
-            #             "sector": "All",
-            #             "year": year if year else "all",
-            #             "gmm_scores": results
-            #         },
-            #         status=status.HTTP_200_OK
-            #     )
-            
             if sector and sector.lower() == "all":
                 filtered_df = self.sector_avg_df.copy()
                 all_possible_years = sorted(filtered_df['Year'].unique())
