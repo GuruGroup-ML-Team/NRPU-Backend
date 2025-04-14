@@ -198,7 +198,24 @@ class CreditRiskAPIView(APIView):
         if 'entities_by_sub_sector' in request.query_params:
             if not sub_sector:
                 return Response({"error": "Sub-sector parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-            entities = self.bank_service.get_banks_by_sub_sector(sub_sector) if entity_type == 'bank' else self.company_service.get_companies_by_sub_sector(sub_sector)
+
+            # First validate the sector-subsector combination if sector is provided
+            if entity_type == 'bank' and sector:
+                is_valid = self.bank_service.validate_sector_subsector(sector, sub_sector)
+                if not is_valid:
+                    return Response({
+                        "error": f"Invalid combination. Sub-sector '{sub_sector}' does not belong to sector '{sector}'."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            elif entity_type == 'company' and sector:
+                is_valid = self.company_service.validate_sector_subsector(sector, sub_sector)
+                if not is_valid:
+                    return Response({
+                        "error": f"Invalid combination. Sub-sector '{sub_sector}' does not belong to sector '{sector}'."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Then fetch the entities after validation passes
+            entities = self.bank_service.get_banks_by_sub_sector(
+                sub_sector) if entity_type == 'bank' else self.company_service.get_companies_by_sub_sector(sub_sector)
             return Response({"entities": entities, "entity_type": entity_type})
 
         # Indicators/metrics endpoints
