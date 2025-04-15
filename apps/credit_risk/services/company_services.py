@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 from django.conf import settings
-
 from apps.credit_risk.company_constants import *
 
 class CompanyDataService:
