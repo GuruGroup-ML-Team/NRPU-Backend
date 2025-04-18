@@ -21,7 +21,7 @@ class CompanyDataService:
         possible_paths = [
             os.path.join(base_dir, COMPANY_CSV_FILENAME),  # Project root
             os.path.join(base_dir, 'bank_api', COMPANY_CSV_FILENAME),
-            os.path.join(base_dir, 'data', COMPANY_CSV_FILENAME),
+            os.path.join(base_dir, 'Data', COMPANY_CSV_FILENAME),
         ]
 
         # Return the first path that exists
