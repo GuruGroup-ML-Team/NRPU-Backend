@@ -26,7 +26,7 @@ class BankDataService:
         possible_paths = [
             os.path.join(base_dir, BANK_CSV_FILENAME),  # Project root
             os.path.join(base_dir, 'bank_api', BANK_CSV_FILENAME),
-            os.path.join(base_dir, 'Data', BANK_CSV_FILENAME),
+            os.path.join(base_dir, 'data', BANK_CSV_FILENAME),
         ]
 
         # Return the first path that exists
@@ -440,11 +440,25 @@ class BankDataService:
         Args:
             bank_data (dict): The bank's financial data
             weights (dict): Dictionary with category weights
-            year (str): The year to calculate score for
+            year (str): The year to calculate score for, or 'ALL' for all years
 
         Returns:
             dict: Score details including category scores and overall rating
         """
+        if year == 'ALL':
+            # Get all available years
+            years = BankDataService.get_years()
+            # Calculate scores for each year
+            all_scores = {}
+            for yr in years:
+                try:
+                    year_score = BankDataService.calculate_bank_score(bank_data, weights, yr)
+                    all_scores[yr] = year_score
+                except Exception as e:
+                    print(f"Error calculating score for year {yr}: {e}")
+                    all_scores[yr] = {"error": str(e)}
+            return all_scores
+
         # Calculate all ratios first
         ratios = BankDataService.calculate_financial_ratios(bank_data, year)
 
