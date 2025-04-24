@@ -1,4 +1,52 @@
 from rest_framework import serializers
+from rest_framework import serializers
+
+class CompanyScoreSerializer(serializers.Serializer):
+    companies = serializers.ListField(child=serializers.CharField())
+    year = serializers.CharField(default="2022")
+    weights = serializers.DictField(
+        child=serializers.FloatField(),
+        default={
+            "profitability": 0.50,
+            "liquidity": 0.25,
+            "activity": 0.15,
+            "solvency": 0.10
+        }
+    )
+
+    def validate_weights(self, weights):
+        """
+        Validate that the weights sum to 1.0 (100%)
+        """
+        total = sum(weights.values())
+        if abs(total - 1.0) > 0.0001:  # Small epsilon for floating point comparison
+            raise serializers.ValidationError(f"Weights must sum to exactly 100%. Current sum is {round(total * 100, 2)}%.")
+        return weights
+
+
+class BankScoreSerializer(serializers.Serializer):
+    banks = serializers.ListField(child=serializers.CharField())
+    year = serializers.CharField(default="2023")
+    weights = serializers.DictField(
+        child=serializers.FloatField(),
+        default={
+            "efficiency": 0.60,
+            "liquidity": 0.25,
+            "asset_quality": 0.15,
+            "capital": 0.10
+        }
+    )
+
+    def validate_weights(self, weights):
+        """
+        Validate that the weights sum to 1.0 (100%)
+        """
+        total = sum(weights.values())
+        if abs(total - 1.0) > 0.0001:  # Small epsilon for floating point comparison
+            raise serializers.ValidationError(f"Weights must sum to exactly 100%. Current sum is {round(total * 100, 2)}%.")
+        return weights
+
+
 
 
 class CompanyComparisonSerializer(serializers.Serializer):
