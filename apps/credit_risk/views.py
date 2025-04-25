@@ -203,6 +203,7 @@ class CreditRiskAPIView(APIView):
         Handle all GET requests based on query parameters.
         """
 
+
         entity_type = 'company'  # Default to company
         if request.query_params.get('entity_type') in ['bank', 'banks', 'bank_name']:
             entity_type = 'bank'
@@ -541,7 +542,7 @@ class CreditRiskAPIView(APIView):
             if entity_type == 'bank':
                 weights = {
                     "efficiency": float(request.query_params.get("efficiency_weight", "0.60")),
-                    "liquidity": float(request.query_params.get("liquidity_weight", "0.25")),
+                    "liquidity": float(request.query_params.get("liquidity_weight", "0.15")),
                     "asset_quality": float(request.query_params.get("asset_quality_weight", "0.15")),
                     "capital": float(request.query_params.get("capital_weight", "0.10"))
                 }
@@ -565,6 +566,32 @@ class CreditRiskAPIView(APIView):
             if year.upper() == 'ALL':
                 all_results = self.process_all_years_entity_score(entities, weights, entity_type)
                 return Response(all_results)
+            # Add this after the ALL years check:
+            if entity_type == 'bank':
+                data = self.bank_service.get_bank_data()
+                results = {}
+                for entity in entities:
+                    if entity not in data["Banks"]:
+                        return Response({"error": f"Bank '{entity}' not found"}, status=status.HTTP_404_NOT_FOUND)
+                    entity_data = data["Banks"][entity]
+                    try:
+                        results[entity] = self.bank_service.calculate_bank_score(entity_data, weights, year)
+                    except Exception as e:
+                        results[entity] = {"error": f"Failed to calculate score: {str(e)}"}
+            else:
+                data = self.company_service.get_company_data()
+                results = {}
+                for entity in entities:
+                    if entity not in data["Companies"]:
+                        return Response({"error": f"Company '{entity}' not found"}, status=status.HTTP_404_NOT_FOUND)
+                    entity_data = data["Companies"][entity]
+                    try:
+                        results[entity] = self.company_service.calculate_company_score(entity_data, weights, year)
+                    except Exception as e:
+                        results[entity] = {"error": f"Failed to calculate score: {str(e)}"}
+
+            return Response(results)
+
         # Trend analysis endpoint
         if 'trend_analysis' in request.query_params:
             entity = entity_name or request.query_params.get("bank") or request.query_params.get("company")
@@ -845,150 +872,150 @@ class CreditRiskAPIView(APIView):
             {"error": "No valid endpoint specified in query parameters"},
             status=status.HTTP_400_BAD_REQUEST
         )
-    #
-    # def post(self, request):
-    #     """
-    #     Handle POST requests for endpoints that need request body data.
-    #     """
-    #     # Entity comparison endpoint
-    #     if 'entity_comparison' in request.data or 'bank_comparison' in request.data or 'company_comparison' in request.data:
-    #         entity_type = 'bank' if 'bank_comparison' in request.data else 'company'
-    #
-    #         if entity_type == 'bank':
-    #             serializer = BankComparisonSerializer(data=request.data)
-    #         else:
-    #             serializer = CompanyComparisonSerializer(data=request.data)
-    #
-    #         if not serializer.is_valid():
-    #             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    #
-    #         entities = serializer.validated_data["entities"] if 'entities' in serializer.validated_data else (
-    #             serializer.validated_data["banks"] if entity_type == 'bank' else serializer.validated_data["companies"]
-    #         )
-    #         metrics = serializer.validated_data.get("metrics", [])
-    #         indicators = serializer.validated_data.get("indicators", [])
-    #         year = serializer.validated_data["year"]
-    #
-    #         if entity_type == 'bank':
-    #             data = self.bank_service.get_bank_data()
-    #             result = {}
-    #             for entity in entities:
-    #                 if entity not in data["Banks"]:
-    #                     return Response({"error": f"Bank '{entity}' not found"},
-    #                                   status=status.HTTP_404_NOT_FOUND)
-    #                 entity_data = data["Banks"][entity]
-    #                 result[entity] = {}
-    #                 for metric in metrics:
-    #                     if metric in entity_data and year in entity_data[metric]:
-    #                         result[entity][metric] = entity_data[metric][year]
-    #                     else:
-    #                         result[entity][metric] = None
-    #         else:
-    #             comparison_data = self.company_service.get_company_comparison_data(entities, indicators, year)
-    #             return Response(comparison_data)
-    #
-    #         return Response(result)
-    #
-    #     # Comparative analysis endpoint (POST version)
-    #     if 'comparative_analysis' in request.data:
-    #         entities = request.data.get("entities") or request.data.get("banks") or request.data.get("companies", [])
-    #         year = request.data.get("year", "2023")
-    #         entity_type = 'bank' if 'banks' in request.data else 'company'
-    #
-    #         if not entities or not isinstance(entities, list):
-    #             return Response(
-    #                 {"error": "Please provide a list of entities to compare"},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-    #
-    #         mock_request = request._request
-    #         mock_request.GET = {
-    #             "entities": ",".join(entities),
-    #             "year": year,
-    #             "comparative_analysis": "true"
-    #         }
-    #         if entity_type == 'bank':
-    #             mock_request.GET["banks"] = ",".join(entities)
-    #         else:
-    #             mock_request.GET["companies"] = ",".join(entities)
-    #
-    #         return self.get(mock_request)
-    #
-    #     # Entity score endpoint (POST version)
-    #     if 'entity_score' in request.data or 'bank_score' in request.data or 'company_score' in request.data:
-    #         entity_type = 'bank' if 'bank_score' in request.data else 'company'
-    #
-    #         if entity_type == 'company':
-    #             serializer = CompanyScoreSerializer(data=request.data)
-    #             if not serializer.is_valid():
-    #                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    #
-    #             entities = serializer.validated_data["companies"]
-    #             year = serializer.validated_data["year"]
-    #             weights = serializer.validated_data["weights"]
-    #         else:
-    #             entities = request.data.get("banks", [])
-    #             year = request.data.get("year", "2023")
-    #             weights = request.data.get("weights", {
-    #                 "efficiency": 0.60,
-    #                 "liquidity": 0.25,
-    #                 "asset_quality": 0.15,
-    #                 "capital": 0.10
-    #             })
-    #
-    #         if not entities or not isinstance(entities, list):
-    #             return Response(
-    #                 {"error": "Please provide a list of entities to score"},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-    #
-    #         mock_request = request._request
-    #         mock_request.GET = {
-    #             "entities": ",".join(entities),
-    #             "year": year,
-    #             "entity_score": "true"
-    #         }
-    #         if entity_type == 'bank':
-    #             mock_request.GET["banks"] = ",".join(entities)
-    #             mock_request.GET["bank_score"] = "true"
-    #             mock_request.GET.update({
-    #                 f"{k}_weight": str(v) for k, v in weights.items()
-    #             })
-    #         else:
-    #             mock_request.GET["companies"] = ",".join(entities)
-    #             mock_request.GET["company_score"] = "true"
-    #             mock_request.GET.update({
-    #                 f"{k}_weight": str(v) for k, v in weights.items()
-    #             })
-    #
-    #         return self.get(mock_request)
-    #
-    #     # Trend analysis endpoint (POST version)
-    #     if 'trend_analysis' in request.data:
-    #         entity = request.data.get("entity") or request.data.get("bank") or request.data.get("company", "")
-    #         years = request.data.get("years", ["2019", "2020", "2021", "2022", "2023"])
-    #         entity_type = 'bank' if 'bank' in request.data else 'company'
-    #
-    #         if not entity:
-    #             return Response(
-    #                 {"error": "Please provide an entity to analyze"},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-    #
-    #         mock_request = request._request
-    #         mock_request.GET = {
-    #             "entity": entity,
-    #             "years": ",".join(years) if isinstance(years, list) else years,
-    #             "trend_analysis": "true"
-    #         }
-    #         if entity_type == 'bank':
-    #             mock_request.GET["bank"] = entity
-    #         else:
-    #             mock_request.GET["company"] = entity
-    #
-    #         return self.get(mock_request)
-    #
-    #     return Response(
-    #         {"error": "No valid endpoint specified in request data"},
-    #         status=status.HTTP_400_BAD_REQUEST
-    #     )
+
+    def post(self, request):
+        """
+        Handle POST requests for endpoints that need request body data.
+        """
+        # Entity comparison endpoint
+        if 'entity_comparison' in request.data or 'bank_comparison' in request.data or 'company_comparison' in request.data:
+            entity_type = 'bank' if 'bank_comparison' in request.data else 'company'
+
+            if entity_type == 'bank':
+                serializer = BankComparisonSerializer(data=request.data)
+            else:
+                serializer = CompanyComparisonSerializer(data=request.data)
+
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            entities = serializer.validated_data["entities"] if 'entities' in serializer.validated_data else (
+                serializer.validated_data["banks"] if entity_type == 'bank' else serializer.validated_data["companies"]
+            )
+            metrics = serializer.validated_data.get("metrics", [])
+            indicators = serializer.validated_data.get("indicators", [])
+            year = serializer.validated_data["year"]
+
+            if entity_type == 'bank':
+                data = self.bank_service.get_bank_data()
+                result = {}
+                for entity in entities:
+                    if entity not in data["Banks"]:
+                        return Response({"error": f"Bank '{entity}' not found"},
+                                      status=status.HTTP_404_NOT_FOUND)
+                    entity_data = data["Banks"][entity]
+                    result[entity] = {}
+                    for metric in metrics:
+                        if metric in entity_data and year in entity_data[metric]:
+                            result[entity][metric] = entity_data[metric][year]
+                        else:
+                            result[entity][metric] = None
+            else:
+                comparison_data = self.company_service.get_company_comparison_data(entities, indicators, year)
+                return Response(comparison_data)
+
+            return Response(result)
+
+        # Comparative analysis endpoint (POST version)
+        if 'comparative_analysis' in request.data:
+            entities = request.data.get("entities") or request.data.get("banks") or request.data.get("companies", [])
+            year = request.data.get("year", "2023")
+            entity_type = 'bank' if 'banks' in request.data else 'company'
+
+            if not entities or not isinstance(entities, list):
+                return Response(
+                    {"error": "Please provide a list of entities to compare"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            mock_request = request._request
+            mock_request.GET = {
+                "entities": ",".join(entities),
+                "year": year,
+                "comparative_analysis": "true"
+            }
+            if entity_type == 'bank':
+                mock_request.GET["banks"] = ",".join(entities)
+            else:
+                mock_request.GET["companies"] = ",".join(entities)
+
+            return self.get(mock_request)
+
+        # Entity score endpoint (POST version)
+        if 'entity_score' in request.data or 'bank_score' in request.data or 'company_score' in request.data:
+            entity_type = 'bank' if 'bank_score' in request.data else 'company'
+
+            if entity_type == 'company':
+                serializer = CompanyScoreSerializer(data=request.data)
+                if not serializer.is_valid():
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                entities = serializer.validated_data["companies"]
+                year = serializer.validated_data["year"]
+                weights = serializer.validated_data["weights"]
+            else:
+                entities = request.data.get("banks", [])
+                year = request.data.get("year", "2023")
+                weights = request.data.get("weights", {
+                    "efficiency": 0.60,
+                    "liquidity": 0.15,
+                    "asset_quality": 0.15,
+                    "capital": 0.10
+                })
+
+            if not entities or not isinstance(entities, list):
+                return Response(
+                    {"error": "Please provide a list of entities to score"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            mock_request = request._request
+            mock_request.GET = {
+                "entities": ",".join(entities),
+                "year": year,
+                "entity_score": "true"
+            }
+            if entity_type == 'bank':
+                mock_request.GET["banks"] = ",".join(entities)
+                mock_request.GET["bank_score"] = "true"
+                mock_request.GET.update({
+                    f"{k}_weight": str(v) for k, v in weights.items()
+                })
+            else:
+                mock_request.GET["companies"] = ",".join(entities)
+                mock_request.GET["company_score"] = "true"
+                mock_request.GET.update({
+                    f"{k}_weight": str(v) for k, v in weights.items()
+                })
+
+            return self.get(mock_request)
+
+        # Trend analysis endpoint (POST version)
+        if 'trend_analysis' in request.data:
+            entity = request.data.get("entity") or request.data.get("bank") or request.data.get("company", "")
+            years = request.data.get("years", ["2019", "2020", "2021", "2022", "2023"])
+            entity_type = 'bank' if 'bank' in request.data else 'company'
+
+            if not entity:
+                return Response(
+                    {"error": "Please provide an entity to analyze"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            mock_request = request._request
+            mock_request.GET = {
+                "entity": entity,
+                "years": ",".join(years) if isinstance(years, list) else years,
+                "trend_analysis": "true"
+            }
+            if entity_type == 'bank':
+                mock_request.GET["bank"] = entity
+            else:
+                mock_request.GET["company"] = entity
+
+            return self.get(mock_request)
+
+        return Response(
+            {"error": "No valid endpoint specified in request data"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
