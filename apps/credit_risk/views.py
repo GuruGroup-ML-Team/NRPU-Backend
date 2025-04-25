@@ -7,8 +7,9 @@ from .services.company_services import CompanyDataService
 from .serializers import BankComparisonSerializer, CompanyComparisonSerializer, CompanyScoreSerializer
 import pandas as pd
 
+
 class CreditRiskAPIView(APIView):
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.bank_service = BankDataService()
@@ -94,7 +95,7 @@ class CreditRiskAPIView(APIView):
                     if "C. Total assets (C1 to C4 + C8 to C10)" in entity_data and yr in entity_data[
                         "C. Total assets (C1 to C4 + C8 to C10)"]:
                         year_results[entity]["basic_info"]["total_assets"] = \
-                        entity_data["C. Total assets (C1 to C4 + C8 to C10)"][yr]
+                            entity_data["C. Total assets (C1 to C4 + C8 to C10)"][yr]
 
                     if "1. Markup/interest earned" in entity_data and yr in entity_data["1. Markup/interest earned"]:
                         year_results[entity]["basic_info"]["revenue"] = entity_data["1. Markup/interest earned"][yr]
@@ -203,13 +204,13 @@ class CreditRiskAPIView(APIView):
         Handle all GET requests based on query parameters.
         """
 
-
         entity_type = 'company'  # Default to company
         if request.query_params.get('entity_type') in ['bank', 'banks', 'bank_name']:
             entity_type = 'bank'
 
         # Extract common parameters
-        entity_name = request.query_params.get('entity_name') or request.query_params.get('bank_name') or request.query_params.get('company_name')
+        entity_name = request.query_params.get('entity_name') or request.query_params.get(
+            'bank_name') or request.query_params.get('company_name')
         # Extract common parameters
         # entity_name = request.query_params.get('entity_name') or request.query_params.get('bank_name') or request.query_params.get('company_name')
         # entity_type = 'bank' if 'bank_name' in request.query_params or 'banks' in request.query_params else 'company'
@@ -219,13 +220,14 @@ class CreditRiskAPIView(APIView):
         metric = request.query_params.get('metric')
         year = request.query_params.get('year', '2023' if entity_type == 'bank' else '2022')
         years_param = request.query_params.get('years', '')
-        years = years_param.split(',') if years_param else (self.bank_service.get_years() if entity_type == 'bank' else self.company_service.get_company_years())
-        
+        years = years_param.split(',') if years_param else (
+            self.bank_service.get_years() if entity_type == 'bank' else self.company_service.get_company_years())
+
         # Entity listing endpoints
         if 'listed_banks' in request.query_params:
             banks = self.bank_service.get_listed_banks()
             return Response({"banks": banks})
-            
+
         if 'listed_companies' in request.query_params:
             companies = self.company_service.get_listed_companies()
             return Response({"companies": companies})
@@ -278,7 +280,7 @@ class CreditRiskAPIView(APIView):
                 data = self.bank_service.get_bank_data()
                 if entity_name not in data["Banks"]:
                     return Response({"error": f"Bank '{entity_name}' not found"}, status=status.HTTP_404_NOT_FOUND)
-                
+
                 entity_data = data["Banks"][entity_name]
                 all_entities_data = data["Banks"]["All Banks"]
                 analysis = {
@@ -290,18 +292,21 @@ class CreditRiskAPIView(APIView):
                     "growth": {},
                     "industry_comparison": {}
                 }
-                
+
                 # Bank-specific metrics
                 for m in ["Assets", "Revenue", "A. Total equity (A1 to A3)"]:
                     if m in entity_data and year in entity_data[m]:
                         analysis["metrics"][m.lower()] = entity_data[m][year]
-                        if f"{year-1}" in entity_data[m]:
-                            growth = ((entity_data[m][year] - entity_data[m][str(int(year)-1)]) / entity_data[m][str(int(year)-1)]) * 100
+                        if f"{year - 1}" in entity_data[m]:
+                            growth = ((entity_data[m][year] - entity_data[m][str(int(year) - 1)]) / entity_data[m][
+                                str(int(year) - 1)]) * 100
                             analysis["growth"][f"{m.lower()}_growth"] = round(growth, 2)
-                
-                if "Assets" in entity_data and year in entity_data["Assets"] and "Assets" in all_entities_data and year in all_entities_data["Assets"]:
-                    analysis["industry_comparison"]["asset_market_share"] = round((entity_data["Assets"][year] / all_entities_data["Assets"][year]) * 100, 2)
-                
+
+                if "Assets" in entity_data and year in entity_data[
+                    "Assets"] and "Assets" in all_entities_data and year in all_entities_data["Assets"]:
+                    analysis["industry_comparison"]["asset_market_share"] = round(
+                        (entity_data["Assets"][year] / all_entities_data["Assets"][year]) * 100, 2)
+
                 # Calculate bank ratios
                 calculated_ratios = self.bank_service.calculate_financial_ratios(entity_data, year)
                 for ratio_category in calculated_ratios:
@@ -310,10 +315,10 @@ class CreditRiskAPIView(APIView):
                 data = self.company_service.get_company_data()
                 if entity_name not in data["Companies"]:
                     return Response({"error": f"Company '{entity_name}' not found"}, status=status.HTTP_404_NOT_FOUND)
-                
+
                 entity_data = data["Companies"][entity_name]
                 indicators = entity_data.get("Indicators", {})
-                
+
                 # Find industry data
                 industry_data = None
                 for name, info in data["Companies"].items():
@@ -323,7 +328,7 @@ class CreditRiskAPIView(APIView):
                             break
                         elif info.get("Sector") == entity_data.get("Sector"):
                             industry_data = info
-                
+
                 analysis = {
                     "entity_name": entity_name,
                     "entity_type": "company",
@@ -335,7 +340,7 @@ class CreditRiskAPIView(APIView):
                     "growth": {},
                     "industry_comparison": {}
                 }
-                
+
                 # Company-specific metrics
                 key_metrics = [
                     "F. Operations: - 1. Sales",
@@ -343,30 +348,36 @@ class CreditRiskAPIView(APIView):
                     "C. Shareholders' Equity (C1+C2+C3)",
                     "F. Operations: - 10. Profit / (loss) after tax (F8-F9)"
                 ]
-                
+
                 for metric in key_metrics:
                     if metric in indicators and year in indicators[metric]:
                         readable_name = metric.split(" - ")[-1].split(" (")[0]
-                        analysis["metrics"][readable_name.lower().replace(" ", "_").replace("/", "_")] = indicators[metric][year]
-                        prev_year = str(int(year)-1)
+                        analysis["metrics"][readable_name.lower().replace(" ", "_").replace("/", "_")] = \
+                        indicators[metric][year]
+                        prev_year = str(int(year) - 1)
                         if prev_year in indicators[metric] and indicators[metric][prev_year] != 0:
-                            growth = ((indicators[metric][year] - indicators[metric][prev_year]) / indicators[metric][prev_year]) * 100
-                            analysis["growth"][f"{readable_name.lower().replace(' ', '_').replace('/', '_')}_growth"] = round(growth, 2)
-                
+                            growth = ((indicators[metric][year] - indicators[metric][prev_year]) / indicators[metric][
+                                prev_year]) * 100
+                            analysis["growth"][
+                                f"{readable_name.lower().replace(' ', '_').replace('/', '_')}_growth"] = round(growth,
+                                                                                                               2)
+
                 # Calculate company ratios
                 analysis["ratios"] = self.company_service.calculate_company_financial_ratios(entity_data, year)
-                
+
                 # Industry comparison
                 if industry_data:
                     industry_indicators = industry_data.get("Indicators", {})
                     for metric in key_metrics:
                         if (metric in indicators and year in indicators[metric] and
-                            metric in industry_indicators and year in industry_indicators[metric] and
-                            industry_indicators[metric][year] != 0):
+                                metric in industry_indicators and year in industry_indicators[metric] and
+                                industry_indicators[metric][year] != 0):
                             readable_name = metric.split(" - ")[-1].split(" (")[0]
                             share = (indicators[metric][year] / industry_indicators[metric][year]) * 100
-                            analysis["industry_comparison"][f"{readable_name.lower().replace(' ', '_').replace('/', '_')}_vs_industry"] = round(share, 2)
-            
+                            analysis["industry_comparison"][
+                                f"{readable_name.lower().replace(' ', '_').replace('/', '_')}_vs_industry"] = round(
+                                share, 2)
+
             return Response(analysis)
 
         # Sector/sub-sector endpoints
@@ -377,7 +388,8 @@ class CreditRiskAPIView(APIView):
         if 'sub_sectors' in request.query_params:
             if not sector:
                 return Response({"error": "Sector parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-            sub_sectors = self.bank_service.get_sub_sectors(sector) if entity_type == 'bank' else self.company_service.get_company_sub_sectors(sector)
+            sub_sectors = self.bank_service.get_sub_sectors(
+                sector) if entity_type == 'bank' else self.company_service.get_company_sub_sectors(sector)
             return Response({"sub_sectors": sub_sectors, "entity_type": entity_type})
 
         if 'entities_by_sub_sector' in request.query_params:
@@ -425,11 +437,13 @@ class CreditRiskAPIView(APIView):
 
         # Comparative analysis endpoint
         if 'comparative_analysis' in request.query_params:
-            entities_param = request.query_params.get("entities") or request.query_params.get("banks") or request.query_params.get("companies")
+            entities_param = request.query_params.get("entities") or request.query_params.get(
+                "banks") or request.query_params.get("companies")
             entities = entities_param.split(",") if entities_param else []
 
             if not entities:
-                return Response({"error": "Please provide a list of entities to compare"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Please provide a list of entities to compare"},
+                                status=status.HTTP_400_BAD_REQUEST)
             # If year is ALL, process all available years
             if year.upper() == 'ALL':
                 all_results = self.process_all_years_comparative_analysis(entities, entity_type)
@@ -438,11 +452,11 @@ class CreditRiskAPIView(APIView):
                 data = self.bank_service.get_bank_data()
                 all_entities_data = data["Banks"].get("All Banks", {})
                 results = {}
-                
+
                 for entity in entities:
                     if entity not in data["Banks"]:
                         return Response({"error": f"Bank '{entity}' not found"}, status=status.HTTP_404_NOT_FOUND)
-                    
+
                     entity_data = data["Banks"][entity]
                     results[entity] = {
                         "basic_info": {"name": entity, "year": year},
@@ -452,8 +466,10 @@ class CreditRiskAPIView(APIView):
                         "capital_ratios": {}
                     }
 
-                    if "C. Total assets (C1 to C4 + C8 to C10)" in entity_data and year in entity_data["C. Total assets (C1 to C4 + C8 to C10)"]:
-                        results[entity]["basic_info"]["total_assets"] = entity_data["C. Total assets (C1 to C4 + C8 to C10)"][year]
+                    if "C. Total assets (C1 to C4 + C8 to C10)" in entity_data and year in entity_data[
+                        "C. Total assets (C1 to C4 + C8 to C10)"]:
+                        results[entity]["basic_info"]["total_assets"] = \
+                        entity_data["C. Total assets (C1 to C4 + C8 to C10)"][year]
 
                     if "1. Markup/interest earned" in entity_data and year in entity_data["1. Markup/interest earned"]:
                         results[entity]["basic_info"]["revenue"] = entity_data["1. Markup/interest earned"][year]
@@ -476,11 +492,11 @@ class CreditRiskAPIView(APIView):
             else:
                 data = self.company_service.get_company_data()
                 results = {}
-                
+
                 for entity in entities:
                     if entity not in data["Companies"]:
                         return Response({"error": f"Company '{entity}' not found"}, status=status.HTTP_404_NOT_FOUND)
-                    
+
                     entity_data = data["Companies"][entity]
                     results[entity] = {
                         "basic_info": {
@@ -499,7 +515,8 @@ class CreditRiskAPIView(APIView):
 
                     indicators = entity_data.get("Indicators", {})
                     if "Total Assets (A+B) / Equity & Liabilities (C+D+E)" in indicators:
-                        results[entity]["basic_info"]["total_assets"] = indicators["Total Assets (A+B) / Equity & Liabilities (C+D+E)"].get(year)
+                        results[entity]["basic_info"]["total_assets"] = indicators[
+                            "Total Assets (A+B) / Equity & Liabilities (C+D+E)"].get(year)
                     if "F. Operations: - 1. Sales" in indicators:
                         results[entity]["basic_info"]["revenue"] = indicators["F. Operations: - 1. Sales"].get(year)
 
@@ -533,20 +550,30 @@ class CreditRiskAPIView(APIView):
                         results["Industry Average"][f"{ratio_type}_ratios"] = industry_ratios[ratio_type]
 
             return Response(results)
-
-        if 'entity_score' in request.query_params or 'bank_score' in request.query_params or 'company_score' in request.query_params:
+            # Modified section for entity scoring with custom and default weights
+        if 'entity_score' in request.query_params or 'bank_score' in request.query_params or 'company_score' in request.query_params or 'custom_bank_score' in request.query_params:
             entities_param = request.query_params.get("entities") or request.query_params.get(
                 "banks") or request.query_params.get("companies")
             entities = entities_param.split(",") if entities_param else []
 
-            if entity_type == 'bank':
+            # Check if using custom weights for banks
+            if 'custom_bank_score' in request.query_params and entity_type == 'bank':
                 weights = {
                     "efficiency": float(request.query_params.get("efficiency_weight", "0.60")),
                     "liquidity": float(request.query_params.get("liquidity_weight", "0.15")),
                     "asset_quality": float(request.query_params.get("asset_quality_weight", "0.15")),
                     "capital": float(request.query_params.get("capital_weight", "0.10"))
                 }
+            elif entity_type == 'bank':
+                # Default bank weights
+                weights = {
+                    "efficiency": 0.60,
+                    "liquidity": 0.15,
+                    "asset_quality": 0.15,
+                    "capital": 0.10
+                }
             else:
+                # Company weights
                 weights = {
                     "profitability": float(request.query_params.get("profitability_weight", "0.50")),
                     "liquidity": float(request.query_params.get("liquidity_weight", "0.25")),
@@ -554,7 +581,6 @@ class CreditRiskAPIView(APIView):
                     "solvency": float(request.query_params.get("solvency_weight", "0.10"))
                 }
 
-            # Validate weights sum to 1.0
             is_valid, error_message = self.validate_weights_sum_to_100(weights)
             if not is_valid:
                 return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
@@ -591,20 +617,19 @@ class CreditRiskAPIView(APIView):
                         results[entity] = {"error": f"Failed to calculate score: {str(e)}"}
 
             return Response(results)
-
         # Trend analysis endpoint
         if 'trend_analysis' in request.query_params:
             entity = entity_name or request.query_params.get("bank") or request.query_params.get("company")
             if not entity:
-                return Response({"error": "Please provide an entity to analyze"}, 
-                              status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Please provide an entity to analyze"},
+                                status=status.HTTP_400_BAD_REQUEST)
 
             if entity_type == 'bank':
                 data = self.bank_service.get_bank_data()
                 if entity not in data["Banks"]:
-                    return Response({"error": f"Bank '{entity}' not found"}, 
-                                  status=status.HTTP_404_NOT_FOUND)
-                
+                    return Response({"error": f"Bank '{entity}' not found"},
+                                    status=status.HTTP_404_NOT_FOUND)
+
                 entity_data = data["Banks"][entity]
                 results = {
                     "entity": entity,
@@ -615,7 +640,7 @@ class CreditRiskAPIView(APIView):
                     "asset_quality_trends": {},
                     "capital_trends": {}
                 }
-                
+
                 # Calculate bank trend ratios
                 if "3. Net markup/interest income" in entity_data and "1. Markup/interest earned" in entity_data:
                     spread_ratio = self.bank_service.calculate_ratio_trend(
@@ -624,7 +649,7 @@ class CreditRiskAPIView(APIView):
                         factor=100, years=years
                     )
                     results["efficiency_trends"]["spread_ratio"] = spread_ratio
-                
+
                 if "3. Net markup/interest income" in bank_data and "C. Total assets (C1 to C4 + C8 to C10)" in bank_data:
                     nim_trend = self.bank_service.calculate_ratio_trend(
                         bank_data, "Net Interest Margin",
@@ -632,7 +657,7 @@ class CreditRiskAPIView(APIView):
                         factor=100, years=years
                     )
                     results["efficiency_trends"]["net_interest_margin"] = nim_trend
-                
+
                     # Calculate trend for ROE
                 if "10. Profit/(loss) after taxation" in bank_data and "A. Total equity (A1 to A3)" in bank_data:
                     roe_trend = BankDataService.calculate_ratio_trend(
@@ -795,18 +820,17 @@ class CreditRiskAPIView(APIView):
                         factor=1, years=years  # No percentage for this ratio
                     )
                     results["capital_trends"]["deposits_to_equity"] = dep_to_equity_trend
-                    
 
                 # return Response(results)
 
-            
-                
+
+
             else:
                 data = self.company_service.get_company_data()
                 if entity not in data["Companies"]:
-                    return Response({"error": f"Company '{entity}' not found"}, 
-                                  status=status.HTTP_404_NOT_FOUND)
-                
+                    return Response({"error": f"Company '{entity}' not found"},
+                                    status=status.HTTP_404_NOT_FOUND)
+
                 entity_data = data["Companies"][entity]
                 indicators = entity_data.get("Indicators", {})
                 results = {
@@ -821,7 +845,7 @@ class CreditRiskAPIView(APIView):
                     "solvency_trends": {},
                     "cash_flow_trends": {}
                 }
-                
+
                 # First check for pre-calculated ratios
                 kpi_prefixes = {
                     "I. Key Performance Indicators - Profitability Ratios": "profitability_trends",
@@ -830,24 +854,27 @@ class CreditRiskAPIView(APIView):
                     "I. Key Performance Indicators - Solvency Ratios": "solvency_trends",
                     "I. Key Performance Indicators - Cash Flow Ratios": "cash_flow_trends"
                 }
-                
+
                 for kpi_prefix, trend_key in kpi_prefixes.items():
                     for indicator_key in indicators:
                         if indicator_key.startswith(kpi_prefix):
                             ratio_name = indicator_key.replace(kpi_prefix + " - ", "").lower().replace(" ", "_")
                             ratio_trend = {yr: indicators[indicator_key].get(yr) for yr in years}
                             results[trend_key][ratio_name] = ratio_trend
-                
+
                 # If no pre-calculated ratios found, calculate them
                 if not any(results[trend_key] for trend_key in results if trend_key.endswith('_trends')):
                     # Calculate profitability trends
-                    results["profitability_trends"]["return_on_equity"] = self.company_service.calculate_company_ratio_trend(
+                    results["profitability_trends"][
+                        "return_on_equity"] = self.company_service.calculate_company_ratio_trend(
                         entity_data, "Return on Equity", "NET_PROFIT", "TOTAL_EQUITY", 100, years
                     )
-                    results["profitability_trends"]["return_on_assets"] = self.company_service.calculate_company_ratio_trend(
+                    results["profitability_trends"][
+                        "return_on_assets"] = self.company_service.calculate_company_ratio_trend(
                         entity_data, "Return on Assets", "NET_PROFIT", "TOTAL_ASSETS", 100, years
                     )
-                    results["profitability_trends"]["net_profit_margin"] = self.company_service.calculate_company_ratio_trend(
+                    results["profitability_trends"][
+                        "net_profit_margin"] = self.company_service.calculate_company_ratio_trend(
                         entity_data, "Net Profit Margin", "NET_PROFIT", "SALES", 100, years
                     )
 
@@ -865,7 +892,7 @@ class CreditRiskAPIView(APIView):
                     results["solvency_trends"]["debt_to_equity"] = self.company_service.calculate_company_ratio_trend(
                         entity_data, "Debt to Equity", "TOTAL_LIABILITIES", "TOTAL_EQUITY", 1, years
                     )
-            
+
             return Response(results)
 
         return Response(
@@ -902,7 +929,7 @@ class CreditRiskAPIView(APIView):
                 for entity in entities:
                     if entity not in data["Banks"]:
                         return Response({"error": f"Bank '{entity}' not found"},
-                                      status=status.HTTP_404_NOT_FOUND)
+                                        status=status.HTTP_404_NOT_FOUND)
                     entity_data = data["Banks"][entity]
                     result[entity] = {}
                     for metric in metrics:
