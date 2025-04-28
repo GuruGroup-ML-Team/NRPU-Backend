@@ -2,7 +2,7 @@
 
 # Constants for company data
 COMPANY_CSV_FILENAME = "company_data.csv"
-COMPANY_YEARS = ["2017", "2018", "2019", "2020", "2021", "2022"]
+COMPANY_YEARS = ["2017", "2018", "2019", "2020", "2021", "2022", "2023"]
 
 # Categories for company financial ratios
 COMPANY_PROFITABILITY_RATIOS = "company_profitability_ratios"
