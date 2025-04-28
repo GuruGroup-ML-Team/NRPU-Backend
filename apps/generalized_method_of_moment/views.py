@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import pandas as pd
 import numpy as np
+import math
 
 class GeneralizedMethodOfMoment(APIView):
     
@@ -63,7 +64,7 @@ class GeneralizedMethodOfMoment(APIView):
                     0.038 * components['PS'] -
                     0.185 * components['log_GDP'] -
                     0.008 * components['BM'] +
-                    0.064 * components['log_CD'] -
+                    0.064 * components['log_CD'] +
                     0.048 * components['log_OFA'] -
                     0.0111 * components['log_IMP'] +
                     0.031 * components['log_TE'] -
@@ -71,8 +72,8 @@ class GeneralizedMethodOfMoment(APIView):
                     0.085 * components['log_GO2']
                 )
                 
-                gmm_scores[year] = gmm_score
-                print(f"Calculated GMM Score for {year}: {gmm_score}")
+                gmm_scores[year] = math.exp(gmm_score)
+                print(f"Calculated GMM Score for {year}: {gmm_score}, Antilog: {math.exp(gmm_score)}")
             except Exception as e:
                 print(f"Error in calculating GMM Score for year {year}: {str(e)}")
                 gmm_scores[year] = f"Error: {str(e)}"
