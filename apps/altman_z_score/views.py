@@ -30,7 +30,9 @@ class AltmanZScoreView(APIView):
             'E. Current Liabilities (E1+E2+E3+E4)': ('Indicator', 'tl_e')
         }
 
-        year_columns = [col for col in df_filtered.columns if col.isdigit()]
+        # year_columns = [col for col in df_filtered.columns if col.isdigit()]
+        year_columns = [str(col) for col in df_filtered.columns if str(col).isdigit()]
+
         altman_scores = {}
 
         for year in year_columns:
