@@ -31,20 +31,52 @@ class AltmanZScoreView(APIView):
         }
 
         # year_columns = [col for col in df_filtered.columns if col.isdigit()]
-        year_columns = [str(col) for col in df_filtered.columns if str(col).isdigit()]
+        # year_columns = [str(col) for col in df_filtered.columns if str(col).isdigit()]
 
+        # altman_scores = {}
+
+        # for year in year_columns:
+        #     components = {key: None for _, key in zscore_components.values()}
+
+        #     for col_name, (category, key) in zscore_components.items():
+        #         row = df_filtered[df_filtered[category].str.strip().str.lower() == col_name.lower()]
+        #         if not row.empty:
+        #             components[key] = row.iloc[0][year]
+
+        #     print(f"Components for year {year}: {components}")
+                # Get all numeric year columns - fix: Check for year pattern instead of just digits
+        year_columns = []
+        for col in df_filtered.columns:
+            if str(col).isdigit():
+                year_columns.append(str(col))
+            elif isinstance(col, str) and col.startswith('AltmanZscore '):
+                year_value = col.split(' ')[1]
+                if year_value.isdigit():
+                    year_columns.append(year_value)
+
+        for col in df_filtered.columns:
+            if str(col).isdigit() and str(col) not in year_columns:
+                year_columns.append(str(col))
+
+        print(f"Identified year columns: {year_columns}")
         altman_scores = {}
 
         for year in year_columns:
             components = {key: None for _, key in zscore_components.values()}
 
             for col_name, (category, key) in zscore_components.items():
+                # Handle potential whitespace and case differences
                 row = df_filtered[df_filtered[category].str.strip().str.lower() == col_name.lower()]
                 if not row.empty:
-                    components[key] = row.iloc[0][year]
+                    # Try to access the year column directly
+                    if year in row.columns:
+                        components[key] = row.iloc[0][year]
+                    # If not found, try with "AltmanZscore " prefix
+                    elif f"AltmanZscore {year}" in row.columns:
+                        components[key] = row.iloc[0][f"AltmanZscore {year}"]
 
             print(f"Components for year {year}: {components}")
-
+            
             if not all(k in components and components[k] is not None for k in ['ta', 'tl_d', 'tl_e']):
                 print(f"Missing critical components for year {year}")
                 altman_scores[year] = "Insufficient data"
