@@ -191,29 +191,76 @@ class GeneralizedMethodOfMoment(APIView):
                         
                         for _, row in sub_avg_data.iterrows():
                             year_str = str(row['Year'])
+                            # gmm_score = row['GMM Score']
                             gmm_score = row['GMM Score']
+                            try:
+                                gmm_score = float(gmm_score)
+                            except (ValueError, TypeError):
+                                gmm_score = None
+
                             if not pd.isna(gmm_score):
                                 sector_groups[sector_name]["sub_sectors"][sub_sector_name]["years"][year_str] = gmm_score
                 
                 # Calculate overall sector averages by summing sub-sector averages and dividing by total orgs
+                # for sector_name, sector_info in sector_groups.items():
+                #     for year_str in [str(yr) for yr in all_possible_years]:
+                #         valid_subsectors = []
+                #         for sub_sector_info in sector_info["sub_sectors"].values():
+                #             if sub_sector_info["years"][year_str] is not None:
+                #                 valid_subsectors.append(sub_sector_info)
+                        
+                #         if valid_subsectors:
+                #             if len(valid_subsectors) > 1:
+                #                 sum_of_averages = sum(sub["years"][year_str] for sub in valid_subsectors)
+                #                 # Divide by total organizations in the sector
+                #                 if sector_info["total_organizations"] > 0:
+                #                     sector_avg = sum_of_averages / sector_info["total_organizations"]
+                #                     sector_groups[sector_name]["years"][year_str] = sector_avg
+                #             else:
+                #                 # For sectors with only one sub-sector, use the sub-sector average directly
+                #                 sector_groups[sector_name]["years"][year_str] = valid_subsectors[0]["years"][year_str]
+
                 for sector_name, sector_info in sector_groups.items():
                     for year_str in [str(yr) for yr in all_possible_years]:
                         valid_subsectors = []
                         for sub_sector_info in sector_info["sub_sectors"].values():
                             if sub_sector_info["years"][year_str] is not None:
                                 valid_subsectors.append(sub_sector_info)
-                        
+
                         if valid_subsectors:
                             if len(valid_subsectors) > 1:
-                                sum_of_averages = sum(sub["years"][year_str] for sub in valid_subsectors)
-                                # Divide by total organizations in the sector
-                                if sector_info["total_organizations"] > 0:
-                                    sector_avg = sum_of_averages / sector_info["total_organizations"]
+                                year_total_sum = 0
+                                available_orgs = 0
+
+                                for sub in valid_subsectors:
+                                    gmm_score = sub["years"][year_str]
+                                    if isinstance(gmm_score, (int, float)) and not pd.isna(gmm_score):
+                                        sub_orgs = regular_orgs[
+                                            (regular_orgs['Sector'] == sector_name) &
+                                            (regular_orgs['Sub-Sector'] == sub["sub_sector"]) &
+                                            (regular_orgs['Year'].astype(str) == year_str)
+                                        ]
+                                        gmm_values = sub_orgs['GMM Score']
+                                        numeric_gmm = [g for g in gmm_values if isinstance(g, (int, float)) and not pd.isna(g)]
+                                        valid_org_count = len(numeric_gmm)
+
+                                        if valid_org_count > 0:
+                                            available_orgs += valid_org_count
+                                            partial_sum = gmm_score * valid_org_count
+                                            year_total_sum += partial_sum
+
+                                            print(f"Sector: {sector_name}, Sub-Sector: {sub['sub_sector']}, Year: {year_str}, GMM Score: {gmm_score}, Valid Orgs: {valid_org_count}, Partial Sum: {partial_sum}")
+
+                                if available_orgs > 0:
+                                    sector_avg = year_total_sum / available_orgs
                                     sector_groups[sector_name]["years"][year_str] = sector_avg
+                                    print(f"[FINAL] Sector: {sector_name}, Year: {year_str}, Sector Avg GMM Score: {sector_avg}, Total Valid Orgs: {available_orgs}")
+
                             else:
-                                # For sectors with only one sub-sector, use the sub-sector average directly
                                 sector_groups[sector_name]["years"][year_str] = valid_subsectors[0]["years"][year_str]
-                
+
+                                
+
                 results = []
                 for sector_name, sector_info in sector_groups.items():
                     sector_entry = {
