@@ -431,7 +431,7 @@ class CompanyDataService:
         return None
 
     @staticmethod
-    def calculate_company_financial_ratios(company_data, year="2022"):
+    def calculate_company_financial_ratios(company_data, year="2023"):
         """
         Calculate key financial ratios for a company based on its data
 
@@ -669,7 +669,7 @@ class CompanyDataService:
         return trend_data
 
     @staticmethod
-    def calculate_company_score(company_data, weights, year="2022"):
+    def calculate_company_score(company_data, weights, year="2023"):
         """
         Calculate an overall financial health score for a company
 
@@ -879,7 +879,7 @@ class CompanyDataService:
         return industry_data
 
     @staticmethod
-    def get_company_comparison_data(companies, indicators, year="2022"):
+    def get_company_comparison_data(companies, indicators, year="2023"):
         """
         Get comparison data for multiple companies on specified indicators
 

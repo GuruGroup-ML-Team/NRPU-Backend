@@ -86,7 +86,7 @@
             
 #             # Define column names
 #             columns = ['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator', 
-#                        '2017', '2018', '2019', '2020', '2021', '2022']
+#                        '2017', '2018', '2019', '2020', '2021', '2022','2023]
 
 #             # Load Excel data
 #             try:
@@ -107,7 +107,7 @@
 #             df = df[df['Indicator'] == "I. Key Performance Indicators"]
 
 #             # Convert year columns to numeric
-#             year_columns = ['2017', '2018', '2019', '2020', '2021', '2022']
+#             year_columns = ['2017', '2018', '2019', '2020', '2021', '2022','2023]
 #             for year_col in year_columns:
 #                 df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
 
@@ -309,7 +309,7 @@ class KeyPerformanceIndicatorView(APIView):
             
             # Define column names
             columns = ['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator', 
-                       '2017', '2018', '2019', '2020', '2021', '2022']
+                       '2017', '2018', '2019', '2020', '2021', '2022','2023']
 
             # Load Excel data
             try:
@@ -330,7 +330,7 @@ class KeyPerformanceIndicatorView(APIView):
             df = df[df['Indicator'] == "I. Key Performance Indicators"]
 
             # Convert year columns to numeric
-            year_columns = ['2017', '2018', '2019', '2020', '2021', '2022']
+            year_columns = ['2017', '2018', '2019', '2020', '2021', '2022','2023']
             for year_col in year_columns:
                 df[year_col] = pd.to_numeric(df[year_col], errors='coerce')
 

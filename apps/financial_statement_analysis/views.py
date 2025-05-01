@@ -76,7 +76,7 @@ class FinancialStatementAnalysisView(APIView):
                 return Response({"error": "Year is required."}, status=status.HTTP_400_BAD_REQUEST)
 
             columns = ['Sector', 'Sub-Sector', 'Org Name', 'Indicator', 'Sub Indicator', 'Sub-Sub Indicator', 
-                       '2017', '2018', '2019', '2020', '2021', '2022']
+                       '2017', '2018', '2019', '2020', '2021', '2022','2023']
             try:
                 file_path = 'Data/input_data.xlsx'
                 df = pd.read_excel(file_path, header=None, names=columns)
@@ -86,7 +86,7 @@ class FinancialStatementAnalysisView(APIView):
 
             df['Indicator'] = df['Indicator'].str.strip()
 
-            year_columns = ['2017', '2018', '2019', '2020', '2021', '2022']
+            year_columns = ['2017', '2018', '2019', '2020', '2021', '2022','2023']
             if year == 'All':
                 selected_years = year_columns
             elif year in year_columns:

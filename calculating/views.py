@@ -21,7 +21,7 @@ def calculate_indicator(request):
                             status=status.HTTP_400_BAD_REQUEST)
 
         # Load Excel data
-        columns = ['Sector', 'Item Name', '2017', '2018', '2019', '2020', '2021', '2022']
+        columns = ['Sector', 'Item Name', '2017', '2018', '2019', '2020', '2021', '2023']
         df = pd.read_excel(file_path, header=None, names=columns)
         
         # Trim whitespace from 'Item Name'
@@ -30,7 +30,7 @@ def calculate_indicator(request):
         # Ensure the year is valid
         year_str = str(year)
         if year_str not in df.columns:
-            return Response({"error": "Year must be between 2017 and 2022."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Year must be between 2017 and 2023."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Step 1: Filter by sector
         sector_data = df[df['Sector'] == sector]

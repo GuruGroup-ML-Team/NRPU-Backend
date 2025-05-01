@@ -66,9 +66,9 @@ class CompanyComparisonSerializer(serializers.Serializer):
         help_text="List of indicators to compare"
     )
     year = serializers.CharField(
-        default="2022",
+        default="2023",
         required=False,
-        help_text="Year for data comparison (default: 2022)"
+        help_text="Year for data comparison (default: 2023)"
     )
 
 
@@ -83,8 +83,8 @@ class CompanyScoreSerializer(serializers.Serializer):
     )
     year = serializers.CharField(
         required=False,
-        default="2022",
-        help_text="Year for scoring (default: 2022)"
+        default="2023",
+        help_text="Year for scoring (default: 2023)"
     )
     weights = serializers.DictField(
         required=False,
