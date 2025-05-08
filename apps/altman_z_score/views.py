@@ -1,7 +1,9 @@
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 import pandas as pd
+import numpy as np
 
 class AltmanZScoreView(APIView):
     
@@ -45,7 +47,6 @@ class AltmanZScoreView(APIView):
             components = {key: None for _, key in zscore_components.values()}
 
             for col_name, (category, key) in zscore_components.items():
-                # Handle potential whitespace and case differences
                 row = df_filtered[df_filtered[category].str.strip().str.lower() == col_name.lower()]
                 if not row.empty:
                     if year in row.columns:
@@ -69,7 +70,12 @@ class AltmanZScoreView(APIView):
                 x4 = components.get('mve', 0) / tl if 'mve' in components and tl > 0 else 0
 
                 altman_zscore = 3.25 + (6.56 * x1) + (3.26 * x2) + (6.72 * x3) + (1.05 * x4)
-                altman_scores[year] = altman_zscore
+                
+                if isinstance(altman_zscore, np.floating) and (np.isnan(altman_zscore) or np.isinf(altman_zscore)):
+                    altman_scores[year] = None
+                else:
+                    altman_scores[year] = float(altman_zscore)
+                    
                 print(f"Calculated Altman Z-Score for {year}: {altman_zscore}")
             except Exception as e:
                 print(f"Error in calculating Altman Z-Score for year {year}: {str(e)}")
@@ -118,15 +124,18 @@ class AltmanZScoreView(APIView):
 
                 # Select only the relevant year column and average row
                 averages_df = averages_df[averages_df['Org Name'] == 'Sector Average'][['Sector', year_column]]
-                return averages_df.rename(columns={year_column: "AltmanZscore"}).to_dict(orient="records")
+                result = averages_df.rename(columns={year_column: "AltmanZscore"}).to_dict(orient="records")
+                return self.replace_nan(result)
             else:
                 averages_df = averages_df[averages_df['Org Name'] == 'Sector Average']
                 averages_df = averages_df.drop(columns=['Sub-Sector', 'Org Name'], errors='ignore')
-                return averages_df.to_dict(orient="records")
+                result = averages_df.to_dict(orient="records")
+                return self.replace_nan(result)
 
         except Exception as e:
             print(f"Error retrieving sector averages: {str(e)}")
             return {"error": str(e)}
+            
     def get(self, request):
         try:
             sector = request.query_params.get('sector', None)
@@ -156,6 +165,12 @@ class AltmanZScoreView(APIView):
                                         status=status.HTTP_404_NOT_FOUND)
                                 
                         result_value = average_data[year_column].iloc[0]
+                        
+                        # Handle NaN values
+                        if isinstance(result_value, (np.floating, float)) and (np.isnan(result_value) or np.isinf(result_value)):
+                            result_value = None
+                        elif isinstance(result_value, np.number):
+                            result_value = float(result_value)
                                 
                         return Response({
                             "sector": sector,
@@ -170,7 +185,15 @@ class AltmanZScoreView(APIView):
                         result_dict = {}
                         for col in year_columns:
                             year_value = col.split(' ')[1]  
-                            result_dict[year_value] = average_data[col].iloc[0]
+                            value = average_data[col].iloc[0]
+                            
+                            # Handle NaN values
+                            if isinstance(value, (np.floating, float)) and (np.isnan(value) or np.isinf(value)):
+                                result_dict[year_value] = None
+                            elif isinstance(value, np.number):
+                                result_dict[year_value] = float(value)
+                            else:
+                                result_dict[year_value] = value
                                 
                         return Response({
                             "sector": sector,
@@ -272,14 +295,15 @@ class AltmanZScoreView(APIView):
                 
                 results = self.replace_nan(results)
                 
-                return Response(
-                    {
-                        "sector": "All",
-                        "year": year if year else "all",
-                        "altman_zscores": results
-                    },
-                    status=status.HTTP_200_OK
-                )
+                response_data = {
+                    "sector": "All",
+                    "year": year if year else "all",
+                    "altman_zscores": results
+                }
+                
+                response_data = self.replace_nan(response_data)
+                
+                return Response(response_data, status=status.HTTP_200_OK)
             
             predefined_sub_indicators = [
                 '    1. Capital work in progress',
@@ -349,12 +373,9 @@ class AltmanZScoreView(APIView):
                     "year": "all",
                     "altman_zscore": altman_zscore
                 }
-
+            
+            response_data = self.replace_nan(response_data)
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        
-        
-        
