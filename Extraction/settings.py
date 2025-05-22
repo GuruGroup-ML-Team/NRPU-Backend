@@ -37,7 +37,7 @@ CORS_ALLOWED_ORIGINS = [
 
 ]
 
-ALLOWED_HOSTS = ['https://nrpuapi-137b31326fcb.herokuap p.com/', 'localhost','new-dash-board-app.vercel.app','ira-nrpu-gamma.vercel.app','nrpu-ira.vercel.app']
+ALLOWED_HOSTS = ['nrpu-esh3fnbghybtaxgz.eastus-01.azurewebsites.net/', 'localhost','new-dash-board-app.vercel.app','ira-nrpu-gamma.vercel.app','nrpu-ira.vercel.app']
 
 
 # Application definition
