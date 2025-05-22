@@ -39,7 +39,6 @@ CORS_ALLOWED_ORIGINS = [
 
 ALLOWED_HOSTS = ['nrpu-esh3fnbghybtaxgz.eastus-01.azurewebsites.net/', 'localhost','new-dash-board-app.vercel.app','ira-nrpu-gamma.vercel.app','nrpu-ira.vercel.app']
 
-
 # Application definition
 
 INSTALLED_APPS = [
