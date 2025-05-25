@@ -361,6 +361,7 @@
         # ABOVE CODE IS WRITEN BY MARYUM IF THERE ARE ANY ISSUES IN THE NEW ONE WE CAN REVERT TO ABOVE ONE
         
         
+        
 import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -474,6 +475,8 @@ class AltmanZScoreView(APIView):
             return data
 
     def get_sector_averages(self, sector, year):
+        # This method is for pre-calculated averages from df_sector_avg.
+        # The new use case will calculate from df_pivot.
         try:
             if sector and sector.lower() != "all":
                 averages_df = self.df_sector_avg[self.df_sector_avg['Sector'].str.lower() == sector.lower()]
@@ -499,7 +502,6 @@ class AltmanZScoreView(APIView):
             logger.error(f"Error retrieving sector averages: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
-    # --- UPDATED HELPER METHOD ---
     def _handle_all_orgs_in_sector(self, sector, year):
         """
         Handles the use case: sector given, no sub_sector, org_name="All".
@@ -515,7 +517,7 @@ class AltmanZScoreView(APIView):
                             status=status.HTTP_404_NOT_FOUND)
 
         unique_org_names = sector_orgs_df['Org Name'].unique()
-        total_orgs_in_sector = len(unique_org_names) # Total unique organizations found in the sector
+        total_orgs_in_sector = len(unique_org_names)
 
         results = []
         predefined_sub_indicators = [
@@ -533,19 +535,17 @@ class AltmanZScoreView(APIView):
                 (org_data['Indicator'].str.strip().str.lower().isin([s.lower() for s in predefined_sub_indicators])) |
                 (org_data['Sub-Sub Indicator'].str.strip().str.lower().isin([s.lower() for s in predefined_sub_indicators]))
             ].copy()
-            
+
             org_data_filtered.drop_duplicates(subset=['Indicator', 'Sub Indicator', 'Sub-Sub Indicator'], keep='first', inplace=True)
 
-            altman_scores = {} # Initialize for each org
+            altman_scores = {}
             if org_data_filtered.empty:
                 logger.warning(f"No sufficient data to calculate Altman Z-score for organization: {org_name} in sector {sector}")
-                altman_scores = {"message": "Insufficient data for calculation"}
+                # We don't append to results if there's no data at all
             else:
                 altman_scores = self.calculate_altman_score(org_data_filtered)
 
-            # Only add to results if there's actual data or a specific error from calculation, not just "Insufficient data"
-            # If altman_scores is an empty dict, it means no years were calculable, or if it contains the "Insufficient data" message.
-            if altman_scores and not (isinstance(altman_scores, dict) and 'message' in altman_scores and altman_scores['message'] == "Insufficient data for calculation"):
+            if altman_scores and not (isinstance(altman_scores, dict) and altman_scores.get(year, "") == "Insufficient data" or altman_scores.get(year, "") == "Insufficient data (missing TA)"):
                  org_result = {
                     "org_name": org_name,
                     "sector": sector,
@@ -553,7 +553,7 @@ class AltmanZScoreView(APIView):
                     "altman_zscore": self.replace_nan(altman_scores.get(year, altman_scores) if year and year.lower() != "all" else altman_scores)
                 }
                  results.append(org_result)
-            elif not altman_scores: # This case means calculate_altman_score returned an empty dict, potentially all years had errors
+            elif not altman_scores:
                 logger.warning(f"Altman Z-score calculation returned no valid scores for organization: {org_name} in sector {sector}")
 
 
@@ -566,13 +566,18 @@ class AltmanZScoreView(APIView):
             "sector": sector,
             "query_type": "All Organizations in Sector",
             "year": year if year else "all",
-            "total_organizations_in_sector": total_orgs_in_sector, # Total unique orgs in the sector
-            "organizations_returned_count": len(results),          # Number of orgs with valid scores
+            "total_organizations_in_sector": total_orgs_in_sector,
+            "organizations_returned_count": len(results),
             "organizations_data": results
         }, status=status.HTTP_200_OK)
 
-
+    # --- REINSTATED AND CORRECTED HELPER METHOD ---
     def _handle_all_org_name_precalculated_averages(self, sector, sub_sector, year):
+        """
+        Handles the case where org_name="All" using the pre-calculated sector averages.
+        This covers requests like /altmanzscore?org_name=All&sector=Finance&sub_sector=Banking
+        or /altmanzscore?org_name=All&sector=Finance
+        """
         try:
             average_data = self.df_sector_avg[self.df_sector_avg['Org Name'].str.contains('Average', case=False, na=False)].copy()
 
@@ -596,12 +601,12 @@ class AltmanZScoreView(APIView):
 
                 return Response({
                     "sector": sector,
-                    "sub_sector": sub_sector,
+                    "sub_sector": sub_sector if sub_sector else "N/A", # Indicate N/A if no sub_sector was specified
                     "org_name": "All (Pre-calculated Average)",
                     "year": year,
                     "altman_zscore": self.replace_nan(result_value)
                 }, status=status.HTTP_200_OK)
-            else:
+            else: # year is "all"
                 year_columns = [col for col in average_data.columns if col.startswith('AltmanZscore')]
 
                 result_dict = {}
@@ -611,7 +616,7 @@ class AltmanZScoreView(APIView):
 
                 return Response({
                     "sector": sector,
-                    "sub_sector": sub_sector,
+                    "sub_sector": sub_sector if sub_sector else "N/A", # Indicate N/A if no sub_sector was specified
                     "org_name": "All (Pre-calculated Averages)",
                     "year": "all",
                     "altman_zscore": self.replace_nan(result_dict)
@@ -621,6 +626,10 @@ class AltmanZScoreView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _handle_all_sector_breakdown(self, year):
+        """
+        Handles the case where sector="All", providing a breakdown by sector and sub-sector,
+        using the pre-calculated averages from df_sector_avg.
+        """
         filtered_df = self.df_sector_avg.copy()
 
         all_possible_years = []
@@ -632,57 +641,66 @@ class AltmanZScoreView(APIView):
 
         sector_groups = {}
 
-        subsector_averages = filtered_df[filtered_df['Org Name'].str.contains('Average', case=False, na=False)]
-        regular_orgs = filtered_df[~filtered_df['Org Name'].str.contains('Average', case=False, na=False)]
+        # Use df_pivot to get actual organization counts
+        all_orgs_for_counts = self.df_pivot.copy()
 
-        for sector_name, sector_data in regular_orgs.groupby('Sector'):
+        # Populate sector_groups structure with actual counts from df_pivot
+        for sector_name in all_orgs_for_counts['Sector'].unique():
             sector_name_l = sector_name.lower()
-            if sector_name_l not in {k.lower() for k in sector_groups.keys()}:
-                sector_groups[sector_name] = {
-                    "sector": sector_name,
-                    "sub_sectors": {},
+            total_orgs_in_current_sector = all_orgs_for_counts[all_orgs_for_counts['Sector'].str.lower() == sector_name_l]['Org Name'].nunique()
+
+            sector_groups[sector_name] = {
+                "sector": sector_name,
+                "sub_sectors": {},
+                "years": {yr: None for yr in all_possible_years},
+                "total_organizations_in_sector": total_orgs_in_current_sector
+            }
+
+            for sub_sector_name in all_orgs_for_counts[all_orgs_for_counts['Sector'].str.lower() == sector_name_l]['Sub-Sector'].dropna().unique():
+                sub_sector_name_l = sub_sector_name.lower()
+                total_orgs_in_current_subsector = all_orgs_for_counts[
+                    (all_orgs_for_counts['Sector'].str.lower() == sector_name_l) &
+                    (all_orgs_for_counts['Sub-Sector'].str.lower() == sub_sector_name_l)
+                ]['Org Name'].nunique()
+
+                sector_groups[sector_name]["sub_sectors"][sub_sector_name] = {
+                    "sub_sector": sub_sector_name,
                     "years": {yr: None for yr in all_possible_years},
-                    "total_organizations": len(sector_data['Org Name'].unique())
+                    "total_organizations_in_sub_sector": total_orgs_in_current_subsector,
+                    "sum_for_sector_avg": {yr: None for yr in all_possible_years}
                 }
 
-            for sub_sector_name, sub_sector_data in sector_data.groupby('Sub-Sector'):
-                sub_sector_name_l = sub_sector_name.lower()
-                total_orgs_in_subsector = len(sub_sector_data['Org Name'].unique())
 
-                if sub_sector_name_l not in {k.lower() for k in sector_groups[sector_name]["sub_sectors"].keys()}:
-                    sector_groups[sector_name]["sub_sectors"][sub_sector_name] = {
-                        "sub_sector": sub_sector_name,
-                        "years": {yr: None for yr in all_possible_years},
-                        "total_organizations": total_orgs_in_subsector,
-                        "sum_for_sector_avg": {yr: None for yr in all_possible_years}
-                    }
+        # Now, fill in the Altman Z-scores using subsector_averages_data
+        for _, row in filtered_df[filtered_df['Org Name'].str.contains('Average', case=False, na=False)].iterrows():
+            current_sector = row['Sector']
+            current_sub_sector = row['Sub-Sector']
+            
+            if current_sector in sector_groups and current_sub_sector in sector_groups[current_sector]["sub_sectors"]:
+                sub_sector_info = sector_groups[current_sector]["sub_sectors"][current_sub_sector]
+                total_orgs_in_subsector_for_calc = sub_sector_info["total_organizations_in_sub_sector"]
 
-                sub_avg_data = subsector_averages[
-                    (subsector_averages['Sector'].str.lower() == sector_name_l) &
-                    (subsector_averages['Sub-Sector'].str.lower() == sub_sector_name_l)
-                ]
+                for yr in all_possible_years:
+                    year_col = f"AltmanZscore {yr}"
+                    if year_col in row.index and pd.notna(row[year_col]):
+                        sub_sector_info["years"][yr] = row[year_col]
+                        sub_sector_info["sum_for_sector_avg"][yr] = row[year_col] * total_orgs_in_subsector_for_calc
 
-                for _, row in sub_avg_data.iterrows():
-                    for yr in all_possible_years:
-                        year_col = f"AltmanZscore {yr}"
-                        if year_col in row.index and pd.notna(row[year_col]):
-                            sector_groups[sector_name]["sub_sectors"][sub_sector_name]["years"][yr] = row[year_col]
-                            sum_value = row[year_col] * total_orgs_in_subsector
-                            sector_groups[sector_name]["sub_sectors"][sub_sector_name]["sum_for_sector_avg"][yr] = sum_value
-
+        # Calculate overall sector averages from weighted sums
         for sector_name, sector_info in sector_groups.items():
             for year_str in all_possible_years:
-                year_total_sum = 0
-                count_for_avg = 0
+                year_total_sum_for_sector = 0
+                total_orgs_for_sector_avg_calc = 0
 
                 for sub_sector_info in sector_info["sub_sectors"].values():
                     if sub_sector_info["sum_for_sector_avg"][year_str] is not None:
-                        year_total_sum += sub_sector_info["sum_for_avg"][year_str] # corrected key
-                        count_for_avg += sub_sector_info["total_organizations"]
+                        year_total_sum_for_sector += sub_sector_info["sum_for_sector_avg"][year_str]
+                        total_orgs_for_sector_avg_calc += sub_sector_info["total_organizations_in_sub_sector"]
 
-                if count_for_avg > 0:
-                    sector_avg = year_total_sum / count_for_avg
+                if total_orgs_for_sector_avg_calc > 0:
+                    sector_avg = year_total_sum_for_sector / total_orgs_for_sector_avg_calc
                     sector_groups[sector_name]["years"][year_str] = sector_avg
+
 
         results = []
         for sector_name, sector_info in sector_groups.items():
@@ -690,7 +708,7 @@ class AltmanZScoreView(APIView):
                 "sector": sector_name,
                 "org_name": "Sector Average",
                 "years": sector_info["years"],
-                "total_organizations_in_sector": sector_info["total_organizations"]
+                "total_organizations_in_sector": sector_info["total_organizations_in_sector"]
             }
 
             sub_sectors_list = []
@@ -699,25 +717,28 @@ class AltmanZScoreView(APIView):
                     "sub_sector": sub_info["sub_sector"],
                     "org_name": "Sub-Sector Average",
                     "years": sub_info["years"],
-                    "total_organizations_in_sub_sector": sub_info["total_organizations"]
+                    "total_organizations_in_sub_sector": sub_info["total_organizations_in_sub_sector"]
                 }
                 sub_sectors_list.append(sub_data)
 
-            sector_entry["sub_sectors"] = sub_sectors_list
+            sector_entry["sub_sectors"] = sorted(sub_sectors_list, key=lambda x: x['sub_sector'])
             results.append(sector_entry)
 
+        results = sorted(results, key=lambda x: x['sector'])
         results = self.replace_nan(results)
 
         return Response(
             {
-                "sector": "All",
+                "query_type": "All Sectors Breakdown",
                 "year": year if year else "all",
-                "altman_zscores": results
+                "altman_zscores_by_sector": results
             },
             status=status.HTTP_200_OK
         )
 
+
     def _handle_specific_org_request(self, sector, sub_sector, org_name, year):
+        """Handles requests for a specific organization."""
         filtered_df = self.df_pivot.copy()
 
         if sector:
@@ -797,15 +818,17 @@ class AltmanZScoreView(APIView):
             org_name_l = org_name.lower() if org_name else None
             year_l = year.lower() if year else None
 
-            # New Use Case: sector given, no sub_sector, org_name="All"
+            # New Use Case: sector given, no sub_sector, org_name="All" - returns individual orgs in sector
             if sector_l and not sub_sector_l and org_name_l == "all":
                 return self._handle_all_orgs_in_sector(sector, year)
 
-            # Existing Use Case 1: org_name="All" and (sector/sub_sector are given or all) for pre-calculated averages
+            # Existing Use Case 1: org_name="All" and (sector/sub_sector are given or all) - uses pre-calculated averages
+            # This handles queries like ?org_name=All&sector=Finance&sub_sector=Banking
+            # OR ?org_name=All&sector=Finance (which would be handled by _handle_all_org_name_precalculated_averages)
             if org_name_l == "all":
                  return self._handle_all_org_name_precalculated_averages(sector, sub_sector, year)
 
-            # Existing Use Case 2: sector="All" (overall breakdown by sector/sub-sector)
+            # Existing Use Case 2: sector="All" (overall breakdown by sector/sub-sector) - uses pre-calculated averages
             elif sector_l == "all":
                 return self._handle_all_sector_breakdown(year)
 
