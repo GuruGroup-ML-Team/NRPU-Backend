@@ -11,4 +11,5 @@ urlpatterns = [
     path('api/', include('apps.generalized_method_of_moment.urls')),
     path('api/', include('apps.credit_risk.urls')),
 
+
 ]
