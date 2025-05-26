@@ -1,3 +1,4 @@
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -99,7 +100,51 @@ class GeneralizedMethodOfMoment(APIView):
             sub_sector = request.query_params.get('sub_sector', None)
             org_name = request.query_params.get('org_name', None)
             year = request.query_params.get('year', None)
-            # Check if 'All' is requested for organization name
+
+            # New Use Case: sector given, no sub_sector, org_name is "all"
+            if sector and sector.lower() != "all" and not sub_sector and org_name and org_name.lower() == "all":
+                print(f"Handling new use case: sector={sector}, sub_sector=None, org_name=All")
+                # Filter self.df (the main GMM data) for the specified sector
+                sector_filtered_df = self.df[self.df['Sector'] == sector].copy()
+
+                if sector_filtered_df.empty:
+                    return Response({"message": f"No data found for sector '{sector}' with all organizations."},
+                                    status=status.HTTP_404_NOT_FOUND)
+
+                # If a specific year is requested, filter data accordingly
+                if year and year.lower() != "all":
+                    try:
+                        year_int = int(year)
+                        sector_filtered_df = sector_filtered_df[sector_filtered_df['Year'] == year_int]
+                        if sector_filtered_df.empty:
+                            return Response({"message": f"No data found for sector '{sector}' for year {year_int} with all organizations."},
+                                            status=status.HTTP_404_NOT_FOUND)
+                    except ValueError:
+                        return Response({"message": "Invalid year format. Please provide a valid integer year or 'all'."},
+                                        status=status.HTTP_400_BAD_REQUEST)
+                
+                # Calculate GMM scores for all organizations in the sector, for the given year(s)
+                # We need to group by Org Name and then calculate the GMM for each organization.
+                # If 'year' is specific, the calculate_gmm_score will return a single score for that year.
+                # If 'year' is 'all', it will return scores for all available years for each organization.
+                
+                results_by_org = {}
+                for org_name_in_sector, org_df in sector_filtered_df.groupby('Org Name'):
+                    gmm_scores_for_org = self.calculate_gmm_score(org_df)
+                    gmm_scores_for_org = self.replace_nan(gmm_scores_for_org)
+                    results_by_org[org_name_in_sector] = gmm_scores_for_org
+
+                response_data = {
+                    "sector": sector,
+                    "sub_sector": None, # Explicitly None as per use case
+                    "org_name": "All",
+                    "year": year if year else "all",
+                    "gmm_scores_by_organization": results_by_org
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+
+
+            # Check if 'All' is requested for organization name (existing logic for sector averages)
             if org_name and org_name.lower() == "all":
                 try:
                     # Get data from gmm_sector_averages.xlsx where Org Name contains "Average"
@@ -113,19 +158,19 @@ class GeneralizedMethodOfMoment(APIView):
                     
                     if average_data.empty:
                         return Response({"message": "No average data found matching the specified criteria."}, 
-                                        status=status.HTTP_404_NOT_FOUND)
+                                         status=status.HTTP_404_NOT_FOUND)
                     # If a specific year is requested, filter data accordingly
                     if year and year.lower() != "all":
                         year_data = average_data[average_data['Year'] == int(year)]
                         
                         if year_data.empty:
                             return Response({"message": f"No data found for the year {year}."},
-                                        status=status.HTTP_404_NOT_FOUND)
-                                
+                                             status=status.HTTP_404_NOT_FOUND)
+                                        
                         result_value = year_data['GMM Score'].iloc[0]
                         if pd.isna(result_value):
                             result_value = None
-                                
+                                        
                         return Response({
                             "sector": sector,
                             "sub_sector": sub_sector,
@@ -141,7 +186,7 @@ class GeneralizedMethodOfMoment(APIView):
                             if pd.isna(score_val):
                                 score_val = None
                             result_dict[year_val] = score_val
-                                
+                                        
                         return Response({
                             "sector": sector,
                             "sub_sector": sub_sector,
@@ -201,25 +246,6 @@ class GeneralizedMethodOfMoment(APIView):
                             if not pd.isna(gmm_score):
                                 sector_groups[sector_name]["sub_sectors"][sub_sector_name]["years"][year_str] = gmm_score
                 
-                # Calculate overall sector averages by summing sub-sector averages and dividing by total orgs
-                # for sector_name, sector_info in sector_groups.items():
-                #     for year_str in [str(yr) for yr in all_possible_years]:
-                #         valid_subsectors = []
-                #         for sub_sector_info in sector_info["sub_sectors"].values():
-                #             if sub_sector_info["years"][year_str] is not None:
-                #                 valid_subsectors.append(sub_sector_info)
-                        
-                #         if valid_subsectors:
-                #             if len(valid_subsectors) > 1:
-                #                 sum_of_averages = sum(sub["years"][year_str] for sub in valid_subsectors)
-                #                 # Divide by total organizations in the sector
-                #                 if sector_info["total_organizations"] > 0:
-                #                     sector_avg = sum_of_averages / sector_info["total_organizations"]
-                #                     sector_groups[sector_name]["years"][year_str] = sector_avg
-                #             else:
-                #                 # For sectors with only one sub-sector, use the sub-sector average directly
-                #                 sector_groups[sector_name]["years"][year_str] = valid_subsectors[0]["years"][year_str]
-
                 for sector_name, sector_info in sector_groups.items():
                     for year_str in [str(yr) for yr in all_possible_years]:
                         valid_subsectors = []
@@ -260,7 +286,6 @@ class GeneralizedMethodOfMoment(APIView):
                                 sector_groups[sector_name]["years"][year_str] = valid_subsectors[0]["years"][year_str]
 
                                 
-
                 results = []
                 for sector_name, sector_info in sector_groups.items():
                     sector_entry = {
@@ -311,14 +336,14 @@ class GeneralizedMethodOfMoment(APIView):
 
             if filtered_df.empty:
                 return Response({"message": "No data found matching the specified criteria."}, 
-                                status=status.HTTP_404_NOT_FOUND)
+                                 status=status.HTTP_404_NOT_FOUND)
 
             # Filter by year if specified
             if year and year.lower() != "all":
                 filtered_df = filtered_df[filtered_df['Year'] == int(year)]
                 if filtered_df.empty:
                     return Response({"message": f"No data found for the year {year}."}, 
-                                    status=status.HTTP_404_NOT_FOUND)
+                                     status=status.HTTP_404_NOT_FOUND)
 
             gmm_score = self.calculate_gmm_score(filtered_df)
             gmm_score = self.replace_nan(gmm_score)
