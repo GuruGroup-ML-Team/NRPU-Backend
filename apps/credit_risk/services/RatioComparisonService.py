@@ -1,8 +1,7 @@
-# # project_root/credit_risk/services/logic_four_service.py
-
 # import pandas as pd
 # # Import the instance of FinancialRatiosService to fetch calculated ratios
-# from credit_risk.services.FinancialRatiosService import financial_ratios_service_instance
+# # from credit_risk.services.FinancialRatiosService import financial_ratios_service_instance
+# from .FinancialRatiosService import financial_ratios_service_instance
 
 # class RatioComparisonService:
 #     """
@@ -68,7 +67,7 @@
 #                     return 5
 #                 elif 81 <= percentage_of_industry_abs < 90: # Company is less negative (better)
 #                     return 4
-#                 elif 90 <= percentage_of_industry_abs <= 110: # Company is on par
+#                 elif 90 <= percentage_of_industry_abs <= 110.999: # Adjusted upper boundary for Score 3
 #                     return 3
 #                 elif 111 <= percentage_of_industry_abs < 120: # Company is more negative (worse)
 #                     return 2
@@ -87,7 +86,7 @@
 #             return 5
 #         elif 111 <= percentage_of_industry < 120:
 #             return 4
-#         elif 90 <= percentage_of_industry <= 110:
+#         elif 90 <= percentage_of_industry <= 110.999: # Adjusted upper boundary for Score 3
 #             return 3
 #         elif 80 <= percentage_of_industry < 90:
 #             return 2
@@ -97,7 +96,7 @@
 #         # Fallback for any uncovered scenarios (should not be reached if all ranges are covered)
 #         return None
 
-#     def compare_financial_ratios(self, entity_type: str, sector: str, sub_sector: str, org_name: str, year: int) -> dict | None:
+#     def compare_financial_ratios(self, entity_type: str, sector: str, sub_sector: str, org_name: str, year: int | str) -> dict | None:
 #         """
 #         Compares the financial ratios of a specific organization with its industry average
 #         and provides a score for each sub-ratio and an average score for each main ratio category.
@@ -107,7 +106,7 @@
 #             sector (str): The sector of the organization.
 #             sub_sector (str): The sub-sector of the organization.
 #             org_name (str): The name of the organization.
-#             year (int): The year for which to perform the comparison.
+#             year (int | str): The year for which to perform the comparison. Can be an integer or 'all'.
 
 #         Returns:
 #             dict: A nested dictionary containing the comparison scores for each ratio,
@@ -139,45 +138,95 @@
 
 #         comparison_results = {}
         
-#         for main_ratio_category, company_sub_ratios in company_ratios.items():
+#         # Check if we are processing for a specific year or all years
+#         is_all_years = (str(year).lower() == 'all')
+
+#         for main_ratio_category, company_sub_ratios_data in company_ratios.items():
 #             # Ensure the main category exists in industry ratios before proceeding
 #             if main_ratio_category not in industry_ratios:
 #                 continue
 
-#             industry_sub_ratios = industry_ratios[main_ratio_category]
+#             industry_sub_ratios_data = industry_ratios[main_ratio_category]
             
-#             # This list will hold only the *successfully calculated numerical scores*
-#             # to ensure the average is only based on available, comparable ratios.
-#             valid_scores_for_average = [] 
 #             sub_ratio_scores = {}
+#             # Initialize for collecting scores per year for category average
+#             category_scores_by_year = {} # Stores {year: [score1, score2, ...]}
 
-#             for sub_ratio_name, company_raw_value in company_sub_ratios.items():
-#                 # --- START OF FIX ---
-#                 # When FinancialRatiosService is called with a specific target_year,
-#                 # the individual ratio values are returned directly, not as a dict keyed by year.
-#                 # So, company_raw_value is already the actual ratio value.
-#                 company_value = company_raw_value
+#             for sub_ratio_name, company_ratio_value_or_dict in company_sub_ratios_data.items():
                 
 #                 # Retrieve the industry value for the current sub_ratio_name
-#                 industry_value = industry_sub_ratios.get(sub_ratio_name)
-#                 # --- END OF FIX ---
+#                 industry_ratio_value_or_dict = industry_sub_ratios_data.get(sub_ratio_name)
 
-#                 score = self._score_ratio(company_value, industry_value) 
-                
-#                 sub_ratio_scores[sub_ratio_name] = {
-#                     "Company Value": company_value,
-#                     "Industry Value": industry_value,
-#                     "Score": score
-#                 }
-                
-#                 # ONLY append the score if it is NOT None. This excludes ratios that couldn't be scored
-#                 # from influencing the average category score.
-#                 if score is not None:
-#                     valid_scores_for_average.append(score) 
+#                 if is_all_years:
+#                     # When year is 'all', company_ratio_value_or_dict and industry_ratio_value_or_dict
+#                     # are expected to be dictionaries of year -> value.
+#                     individual_year_scores = {}
+#                     individual_year_company_values = {}
+#                     individual_year_industry_values = {}
+                    
+#                     # Collect all unique years from both company and industry data for this sub-ratio
+#                     all_years_for_sub_ratio = set()
+#                     if isinstance(company_ratio_value_or_dict, dict):
+#                         all_years_for_sub_ratio.update(company_ratio_value_or_dict.keys())
+#                     if isinstance(industry_ratio_value_or_dict, dict):
+#                         all_years_for_sub_ratio.update(industry_ratio_value_or_dict.keys())
 
-#             # Calculate average category score based ONLY on valid_scores_for_average.
-#             # If valid_scores_for_average is empty (all ratios in category were null), average will be None.
-#             average_category_score = sum(valid_scores_for_average) / len(valid_scores_for_average) if valid_scores_for_average else None
+#                     for y in sorted(list(all_years_for_sub_ratio)):
+#                         company_val = company_ratio_value_or_dict.get(y) if isinstance(company_ratio_value_or_dict, dict) else None
+#                         industry_val = industry_ratio_value_or_dict.get(y) if isinstance(industry_ratio_value_or_dict, dict) else None
+                        
+#                         score = self._score_ratio(company_val, industry_val)
+                        
+#                         individual_year_scores[y] = score
+#                         individual_year_company_values[y] = company_val
+#                         individual_year_industry_values[y] = industry_val
+
+#                         # Collect score for category average calculation by year
+#                         if score is not None:
+#                             if y not in category_scores_by_year:
+#                                 category_scores_by_year[y] = []
+#                             category_scores_by_year[y].append(score)
+                    
+#                     sub_ratio_scores[sub_ratio_name] = {
+#                         "Company Value": individual_year_company_values,
+#                         "Industry Value": individual_year_industry_values,
+#                         "Score By Year": individual_year_scores
+#                     }
+#                 else:
+#                     # When a specific year is requested, company_ratio_value_or_dict and
+#                     # industry_ratio_value_or_dict are expected to be the direct values.
+#                     company_val = company_ratio_value_or_dict
+#                     industry_val = industry_ratio_value_or_dict
+                    
+#                     score = self._score_ratio(company_val, industry_val)
+                    
+#                     sub_ratio_scores[sub_ratio_name] = {
+#                         "Company Value": company_val,
+#                         "Industry Value": industry_val,
+#                         "Score": score
+#                     }
+                    
+#                     # For specific year, collect score for single category average
+#                     if score is not None:
+#                         if 'single_year_scores' not in locals(): # This helps avoid issues if 'single_year_scores' is not defined.
+#                             single_year_scores = []
+#                         single_year_scores.append(score)
+
+
+#             # Calculate average category score(s)
+#             if is_all_years:
+#                 average_category_score = {}
+#                 for y, scores_list in category_scores_by_year.items():
+#                     if scores_list:
+#                         average_category_score[y] = sum(scores_list) / len(scores_list)
+#                     else:
+#                         average_category_score[y] = None # No valid scores for this year in category
+#             else:
+#                 # Calculate single average for the specific year
+#                 if 'single_year_scores' in locals() and single_year_scores:
+#                     average_category_score = sum(single_year_scores) / len(single_year_scores)
+#                 else:
+#                     average_category_score = None # No valid scores for the specific year in category
             
 #             comparison_results[main_ratio_category] = {
 #                 "Sub-Ratios": sub_ratio_scores,
@@ -188,8 +237,12 @@
 
 # # Instantiate the service for use in views
 # ratio_comparison_service_instance = RatioComparisonService()
-# project_root/credit_risk/services/logic_four_service.py
-# project_root/credit_risk/services/logic_four_service.py
+
+
+
+
+
+
 
 import pandas as pd
 # Import the instance of FinancialRatiosService to fetch calculated ratios
@@ -303,7 +356,8 @@ class RatioComparisonService:
 
         Returns:
             dict: A nested dictionary containing the comparison scores for each ratio,
-                  and average scores for each main ratio category.
+                  and average scores for each main ratio category,
+                  plus Revenue and Assets details with ranking.
                   Returns None if data fetching fails or no ratios can be compared.
         """
         # Fetch company-specific ratios using the FinancialRatiosService
@@ -331,11 +385,25 @@ class RatioComparisonService:
 
         comparison_results = {}
         
+        # --- Extract and add RevenueDetails and AssetsDetails to the top level ---
+        # These keys are directly from company_ratios and are not part of the scoring logic.
+        # Use .pop() to remove them from company_ratios so the main loop only processes actual ratio categories.
+        revenue_details = company_ratios.pop("RevenueDetails", None)
+        assets_details = company_ratios.pop("AssetsDetails", None)
+
+        if revenue_details:
+            comparison_results["RevenueDetails"] = revenue_details
+        if assets_details:
+            comparison_results["AssetsDetails"] = assets_details
+        # -----------------------------------------------------------------------
+
         # Check if we are processing for a specific year or all years
         is_all_years = (str(year).lower() == 'all')
 
         for main_ratio_category, company_sub_ratios_data in company_ratios.items():
-            # Ensure the main category exists in industry ratios before proceeding
+            # Ensure the main category exists in industry ratios before proceeding.
+            # This handles cases where any non-ratio categories (if any were left after pop)
+            # would be skipped, which is the desired behavior for comparison.
             if main_ratio_category not in industry_ratios:
                 continue
 
@@ -344,6 +412,10 @@ class RatioComparisonService:
             sub_ratio_scores = {}
             # Initialize for collecting scores per year for category average
             category_scores_by_year = {} # Stores {year: [score1, score2, ...]}
+
+            # Initialize single_year_scores for the current main_ratio_category if not processing all years
+            if not is_all_years:
+                single_year_scores = []
 
             for sub_ratio_name, company_ratio_value_or_dict in company_sub_ratios_data.items():
                 
@@ -401,8 +473,6 @@ class RatioComparisonService:
                     
                     # For specific year, collect score for single category average
                     if score is not None:
-                        if 'single_year_scores' not in locals(): # This helps avoid issues if 'single_year_scores' is not defined.
-                            single_year_scores = []
                         single_year_scores.append(score)
 
 
@@ -416,7 +486,7 @@ class RatioComparisonService:
                         average_category_score[y] = None # No valid scores for this year in category
             else:
                 # Calculate single average for the specific year
-                if 'single_year_scores' in locals() and single_year_scores:
+                if single_year_scores:
                     average_category_score = sum(single_year_scores) / len(single_year_scores)
                 else:
                     average_category_score = None # No valid scores for the specific year in category
