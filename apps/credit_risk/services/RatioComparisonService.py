@@ -245,8 +245,6 @@
 
 
 import pandas as pd
-# Import the instance of FinancialRatiosService to fetch calculated ratios
-# from credit_risk.services.FinancialRatiosService import financial_ratios_service_instance
 from .FinancialRatiosService import financial_ratios_service_instance
 
 class RatioComparisonService:

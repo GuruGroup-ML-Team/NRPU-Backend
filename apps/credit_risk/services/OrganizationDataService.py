@@ -1,7 +1,6 @@
 # project_root/credit_risk/services/logic_one_service.py
 
 import pandas as pd
-# from credit_risk.services.file_loader_service import file_loader_service_instance
 from .file_loader_service import file_loader_service_instance
 
 class OrganizationDataService: # Renamed from LogicOneService

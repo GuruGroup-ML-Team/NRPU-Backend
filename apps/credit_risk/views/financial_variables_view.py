@@ -4,7 +4,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from apps.credit_risk.services.FinancialVariablesService import financial_variables_service_instance
-# from services.FinancialVariablesService import financial_variables_service_instance
 
 import pandas as pd # Import pandas for potential NaN handling if needed in views (though service handles it)
 

@@ -4,9 +4,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-# from OrganizationDataService import organization_data_service_instance
-# from apps.credit_risk.OrganizationDataService import organization_data_service_instance
-# from apps.credit_risk.services.OrganizationDataService import organization_data_service_instance
 from apps.credit_risk.services.OrganizationDataService import organization_data_service_instance
 
 import pandas as pd # Import pandas for data manipulation
