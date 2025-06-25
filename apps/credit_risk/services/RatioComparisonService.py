@@ -1,6 +1,5 @@
+
 # import pandas as pd
-# # Import the instance of FinancialRatiosService to fetch calculated ratios
-# # from credit_risk.services.FinancialRatiosService import financial_ratios_service_instance
 # from .FinancialRatiosService import financial_ratios_service_instance
 
 # class RatioComparisonService:
@@ -110,7 +109,8 @@
 
 #         Returns:
 #             dict: A nested dictionary containing the comparison scores for each ratio,
-#                   and average scores for each main ratio category.
+#                   and average scores for each main ratio category,
+#                   plus Revenue and Assets details with ranking.
 #                   Returns None if data fetching fails or no ratios can be compared.
 #         """
 #         # Fetch company-specific ratios using the FinancialRatiosService
@@ -138,11 +138,25 @@
 
 #         comparison_results = {}
         
+#         # --- Extract and add RevenueDetails and AssetsDetails to the top level ---
+#         # These keys are directly from company_ratios and are not part of the scoring logic.
+#         # Use .pop() to remove them from company_ratios so the main loop only processes actual ratio categories.
+#         revenue_details = company_ratios.pop("RevenueDetails", None)
+#         assets_details = company_ratios.pop("AssetsDetails", None)
+
+#         if revenue_details:
+#             comparison_results["RevenueDetails"] = revenue_details
+#         if assets_details:
+#             comparison_results["AssetsDetails"] = assets_details
+#         # -----------------------------------------------------------------------
+
 #         # Check if we are processing for a specific year or all years
 #         is_all_years = (str(year).lower() == 'all')
 
 #         for main_ratio_category, company_sub_ratios_data in company_ratios.items():
-#             # Ensure the main category exists in industry ratios before proceeding
+#             # Ensure the main category exists in industry ratios before proceeding.
+#             # This handles cases where any non-ratio categories (if any were left after pop)
+#             # would be skipped, which is the desired behavior for comparison.
 #             if main_ratio_category not in industry_ratios:
 #                 continue
 
@@ -151,6 +165,10 @@
 #             sub_ratio_scores = {}
 #             # Initialize for collecting scores per year for category average
 #             category_scores_by_year = {} # Stores {year: [score1, score2, ...]}
+
+#             # Initialize single_year_scores for the current main_ratio_category if not processing all years
+#             if not is_all_years:
+#                 single_year_scores = []
 
 #             for sub_ratio_name, company_ratio_value_or_dict in company_sub_ratios_data.items():
                 
@@ -208,8 +226,6 @@
                     
 #                     # For specific year, collect score for single category average
 #                     if score is not None:
-#                         if 'single_year_scores' not in locals(): # This helps avoid issues if 'single_year_scores' is not defined.
-#                             single_year_scores = []
 #                         single_year_scores.append(score)
 
 
@@ -223,7 +239,7 @@
 #                         average_category_score[y] = None # No valid scores for this year in category
 #             else:
 #                 # Calculate single average for the specific year
-#                 if 'single_year_scores' in locals() and single_year_scores:
+#                 if single_year_scores:
 #                     average_category_score = sum(single_year_scores) / len(single_year_scores)
 #                 else:
 #                     average_category_score = None # No valid scores for the specific year in category
@@ -237,11 +253,6 @@
 
 # # Instantiate the service for use in views
 # ratio_comparison_service_instance = RatioComparisonService()
-
-
-
-
-
 
 
 import pandas as pd
@@ -383,14 +394,18 @@ class RatioComparisonService:
 
         comparison_results = {}
         
-        # --- Extract and add RevenueDetails and AssetsDetails to the top level ---
-        # These keys are directly from company_ratios and are not part of the scoring logic.
-        # Use .pop() to remove them from company_ratios so the main loop only processes actual ratio categories.
-        revenue_details = company_ratios.pop("RevenueDetails", None)
+        # --- MODIFIED: Extract and add RevenueDetails/IncomeDetails and AssetsDetails to the top level ---
+        if entity_type.lower() == "bank":
+            income_details = company_ratios.pop("IncomeDetails", None)
+            if income_details:
+                comparison_results["IncomeDetails"] = income_details
+        else: # company
+            revenue_details = company_ratios.pop("RevenueDetails", None)
+            if revenue_details:
+                comparison_results["RevenueDetails"] = revenue_details
+                
         assets_details = company_ratios.pop("AssetsDetails", None)
 
-        if revenue_details:
-            comparison_results["RevenueDetails"] = revenue_details
         if assets_details:
             comparison_results["AssetsDetails"] = assets_details
         # -----------------------------------------------------------------------
