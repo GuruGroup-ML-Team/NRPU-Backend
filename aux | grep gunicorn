@@ -1,0 +1,11 @@
+[0;1;32m●[0m gunicorn-nrpu.service - gunicorn daemon for NRPU Backend
+     Loaded: loaded (]8;;file://srv913607/etc/systemd/system/gunicorn-nrpu.service/etc/systemd/system/gunicorn-nrpu.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (running)[0m since Fri 2025-07-18 08:46:46 UTC; 13ms ago
+   Main PID: 27998 (gunicorn)
+      Tasks: 1 (limit: 19147)
+     Memory: 3.5M (peak: 3.5M)
+        CPU: 10ms
+     CGroup: /system.slice/gunicorn-nrpu.service
+             └─[0;38;5;245m27998 /root/django_project/NRPU-Backend/env/bin/python3 /root/django_project/NRPU-Backend/env/bin/gunicorn --workers 3 --bind unix:/run/nrpu_backend.sock Extraction.wsgi:application[0m
+
+Jul 18 08:46:46 srv913607 systemd[1]: Started gunicorn-nrpu.service - gunicorn daemon for NRPU Backend.

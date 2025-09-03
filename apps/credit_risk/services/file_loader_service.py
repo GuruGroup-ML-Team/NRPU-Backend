@@ -5,6 +5,8 @@ from pathlib import Path
 from django.conf import settings # Import settings to access BASE_DIR
 
 class FileLoaderService:
+    def __init__(self):
+        self._cache = {}
     """
     Service responsible for loading data from Excel files into Pandas DataFrames.
     This service ensures that data loading is centralized and reusable across
@@ -28,6 +30,11 @@ class FileLoaderService:
             raise ValueError(f"Invalid entity type '{entity_type}'. Please specify 'company' or 'bank'.")
 
     def load_data(self, entity_type: str) -> pd.DataFrame | None:
+        if not hasattr(self, '_cache'):  
+            self._cache = {}
+        entity_type = entity_type.lower()
+        if entity_type in self._cache:
+            return self._cache[entity_type]
         """
         Loads data from the specified Excel file into a Pandas DataFrame.
 
@@ -46,6 +53,7 @@ class FileLoaderService:
         try:
             if excel_path.exists():
                 df = pd.read_excel(excel_path)
+                self._cache[entity_type] = df
                 print(f"✅ Successfully loaded {entity_type.capitalize()} data from: {excel_path}")
                 return df
             else:

@@ -524,6 +524,7 @@
 
 
 # project_root/credit_risk/services/FinancialRatiosService.py
+# project_root/credit_risk/services/FinancialRatiosService.py
 
 import pandas as pd
 from .FinancialVariablesService import financial_variables_service_instance
@@ -899,6 +900,7 @@ class FinancialRatiosService:
             revenue_display_label = "Sales"
         elif entity_type.lower() == "bank":
             calculator = BankFinancialRatiosCalculator(extracted_data, target_year)
+            #last changed ( 25-6-2025) changed if needed (only for bank)
             revenue_var_key = "INCOME" # Use "INCOME" for banks
             revenue_display_label = "Income" # Updated to "Income" for bank display
         else:
@@ -972,7 +974,7 @@ class FinancialRatiosService:
             else:
                 revenue_details_year["display_string"] = f"{revenue_details_year['label']} in {current_year} N/A"
             
-            # Store under the correct detail key
+            # Store under the correct detail key (name convention wrong ha (income == revenue))
             if entity_type.lower() == "bank":
                 final_results["IncomeDetails"][current_year] = revenue_details_year
             else:

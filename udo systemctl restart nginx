@@ -1,0 +1,23 @@
+[0;1;32m●[0m gunicorn-nrpu.service - Gunicorn service for NRPU Backend
+     Loaded: loaded (]8;;file://srv913607/etc/systemd/system/gunicorn-nrpu.service/etc/systemd/system/gunicorn-nrpu.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (running)[0m since Fri 2025-07-18 11:10:58 UTC; 1h 53min ago
+   Main PID: 34797 (gunicorn)
+      Tasks: 13 (limit: 19147)
+     Memory: 445.6M (peak: 473.5M)
+        CPU: 2min 45.603s
+     CGroup: /system.slice/gunicorn-nrpu.service
+             ├─[0;38;5;245m34797 /root/django_project/NRPU-Backend/env/bin/python3 /root/django_project/NRPU-Backend/env/bin/gunicorn --workers 3 --bind unix:/run/nrpu_backend.sock Extraction.wsgi:application[0m
+             ├─[0;38;5;245m34813 /root/django_project/NRPU-Backend/env/bin/python3 /root/django_project/NRPU-Backend/env/bin/gunicorn --workers 3 --bind unix:/run/nrpu_backend.sock Extraction.wsgi:application[0m
+             ├─[0;38;5;245m34814 /root/django_project/NRPU-Backend/env/bin/python3 /root/django_project/NRPU-Backend/env/bin/gunicorn --workers 3 --bind unix:/run/nrpu_backend.sock Extraction.wsgi:application[0m
+             └─[0;38;5;245m34815 /root/django_project/NRPU-Backend/env/bin/python3 /root/django_project/NRPU-Backend/env/bin/gunicorn --workers 3 --bind unix:/run/nrpu_backend.sock Extraction.wsgi:application[0m
+
+Jul 18 13:02:27 srv913607 gunicorn[34813]: 505               Textile Sector  ...   -0.27286
+Jul 18 13:02:27 srv913607 gunicorn[34813]: 640               Textile Sector  ...   -9.65790
+Jul 18 13:02:27 srv913607 gunicorn[34813]: ...                          ...  ...        ...
+Jul 18 13:02:27 srv913607 gunicorn[34813]: 54775  Other Services Activities  ...   15.56414
+Jul 18 13:02:27 srv913607 gunicorn[34813]: 54910  Other Services Activities  ...  198.53748
+Jul 18 13:02:27 srv913607 gunicorn[34813]: 55045  Other Services Activities  ...    9.11754
+Jul 18 13:02:27 srv913607 gunicorn[34813]: 55180  Other Services Activities  ...  -16.51673
+Jul 18 13:02:27 srv913607 gunicorn[34813]: 55315  Other Services Activities  ...   -1.85026
+Jul 18 13:02:27 srv913607 gunicorn[34813]: [410 rows x 12 columns]
+Jul 18 13:02:27 srv913607 gunicorn[34813]: Calculated Result:

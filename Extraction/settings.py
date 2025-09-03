@@ -26,22 +26,27 @@ SECRET_KEY = 'django-insecure-a^ga6z%)o4#n&xwfut$rboy%(*ybp7i7&15zz9*c+-yt57b96(
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-CORS_ALLOWED_ORIGINS = [
-     "http://localhost:3000",
-     
-     "https://new-dash-board-app.vercel.app",
-     "https://ira-nrpu-gamma.vercel.app",
-     "https://nrpu-ira.vercel.app"
-    # 'http://localhost:3000/CreditRisk',
-    # "http://localhost:3000/financial_statement_analysis/"
+CORS_ALLOW_ALL_ORIGINS = False  # Optional if using ALLOWED_ORIGINS
+CORS_ALLOW_CREDENTIALS = True   # If your frontend sends cookies/auth
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://www.investoriskai.com",
+    "https://investoriskai.com",
+    "investoriskai.com",
+]
+CSRF_TRUSTED_ORIGINS = [
+    "https://www.investoriskai.com",
+    "https://investoriskai.com",
 ]
 
-ALLOWED_HOSTS = ['nrpu-esh3fnbghybtaxgz.eastus-01.azurewebsites.net/', 'localhost','new-dash-board-app.vercel.app','ira-nrpu-gamma.vercel.app','nrpu-ira.vercel.app']
+
+ALLOWED_HOSTS = ['www.investoriskai.com', 'investoriskai.com', 'localhost:3000']
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -53,7 +58,7 @@ INSTALLED_APPS = [
     'apps.calculating.apps.CalculatingConfig',
 
     'apps.economic_data',
-    'corsheaders',
+  
     'apps.financial_statement_analysis',
     'apps.altman_z_score',
     'apps.generalized_method_of_moment',
@@ -104,10 +109,12 @@ WSGI_APPLICATION = 'Extraction.wsgi.application'
 #     }
 # }
 
-
 DATABASES = {
-    'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+    'default': {
+        'ENGINE': 'django.db.backends.dummy'
+    }
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
